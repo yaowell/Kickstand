@@ -1,6 +1,5 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-#import <objc/runtime.h>
 
 static NSMutableString *gLog;
 
@@ -34,89 +33,35 @@ static void KSSaveLog(void) {
                 error:nil];
 }
 
-static BOOL KSTargetGesture(UIGestureRecognizer *gr) {
-    NSString *name = NSStringFromClass([gr class]);
+@interface SBCoverSheetPrimarySlidingViewController : NSObject
+@end
 
-    return [name isEqualToString:@"SBCoverSheetPresentationGestureRecognizer"] ||
-           [name isEqualToString:@"SBCoverSheetScreenEdgePanGestureRecognizer"];
-}
+@interface SBGrabberTongue : NSObject
+@end
 
-static NSString *KSState(UIGestureRecognizerState state) {
-    switch (state) {
-        case UIGestureRecognizerStatePossible:
-            return @"POSSIBLE";
-        case UIGestureRecognizerStateBegan:
-            return @"BEGAN";
-        case UIGestureRecognizerStateChanged:
-            return @"CHANGED";
-        case UIGestureRecognizerStateEnded:
-            return @"ENDED";
-        case UIGestureRecognizerStateCancelled:
-            return @"CANCELLED";
-        case UIGestureRecognizerStateFailed:
-            return @"FAILED";
-    }
+%hook SBCoverSheetPrimarySlidingViewController
 
-    return @"UNKNOWN";
-}
-
-static void KSLogTargets(UIGestureRecognizer *gr) {
-    NSArray *targets = nil;
-
-    @try {
-        targets = [gr valueForKey:@"_targets"];
-    } @catch (...) {
-        targets = nil;
-    }
-
-    KSLog(@"targets=%@", targets);
-
-    if (!targets) return;
-
-    for (id targetInfo in targets) {
-        id target = nil;
-        id action = nil;
-
-        @try {
-            target = [targetInfo valueForKey:@"_target"];
-        } @catch (...) {
-        }
-
-        @try {
-            action = [targetInfo valueForKey:@"_action"];
-        } @catch (...) {
-        }
-
-        KSLog(@"target=%@ class=%@",
-              target,
-              target ? NSStringFromClass([target class]) : @"<nil>");
-
-        KSLog(@"action=%@",
-              action);
-    }
-}
-
-static void KSLogGesture(UIGestureRecognizer *gr,
-                         UIGestureRecognizerState state) {
-    if (!KSTargetGesture(gr)) return;
-
+- (void)_handleDismissGesture:(id)gesture {
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"GESTURE %@", NSStringFromClass([gr class]));
-    KSLog(@"state=%@", KSState(state));
+    KSLog(@"HANDLE DISMISS GESTURE");
     KSLog(@"========================================");
 
-    UIView *view = gr.view;
+    KSLog(@"gesture=%@",
+          gesture ? NSStringFromClass([gesture class]) : @"<nil>");
 
-    KSLog(@"view=%@",
-          view ? NSStringFromClass([view class]) : @"<nil>");
-
-    if ([gr isKindOfClass:[UIPanGestureRecognizer class]]) {
+    if ([gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
         UIPanGestureRecognizer *pan =
-            (UIPanGestureRecognizer *)gr;
+            (UIPanGestureRecognizer *)gesture;
+
+        UIView *view = pan.view;
 
         CGPoint translation = [pan translationInView:view];
         CGPoint velocity = [pan velocityInView:view];
+        CGPoint location = [pan locationInView:view];
+
+        KSLog(@"state=%ld",
+              (long)pan.state);
 
         KSLog(@"translation=(%.1f, %.1f)",
               translation.x,
@@ -127,24 +72,56 @@ static void KSLogGesture(UIGestureRecognizer *gr,
               velocity.y);
 
         KSLog(@"location=(%.1f, %.1f)",
-              [pan locationInView:view].x,
-              [pan locationInView:view].y);
+              location.x,
+              location.y);
     }
 
-    KSLogTargets(gr);
+    %orig;
+
+    KSLog(@"HANDLE DISMISS GESTURE AFTER");
+    KSSaveLog();
 }
 
-%hook UIGestureRecognizer
+%end
 
-- (void)setState:(UIGestureRecognizerState)state {
-    if (KSTargetGesture(self) &&
-        self.state != state) {
+%hook SBGrabberTongue
 
-        KSLogGesture(self, state);
+- (void)_handlePullGesture:(id)gesture {
+    if (gesture &&
+        [gesture isKindOfClass:[UIGestureRecognizer class]]) {
 
-        if (state == UIGestureRecognizerStateEnded ||
-            state == UIGestureRecognizerStateCancelled ||
-            state == UIGestureRecognizerStateFailed) {
+        NSString *name = NSStringFromClass([gesture class]);
+
+        if ([name isEqualToString:@"SBCoverSheetPresentationGestureRecognizer"]) {
+            KSLog(@"");
+            KSLog(@"========================================");
+            KSLog(@"HANDLE PRESENTATION PULL GESTURE");
+            KSLog(@"========================================");
+
+            KSLog(@"gesture=%@",
+                  name);
+
+            if ([gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
+                UIPanGestureRecognizer *pan =
+                    (UIPanGestureRecognizer *)gesture;
+
+                UIView *view = pan.view;
+
+                CGPoint translation = [pan translationInView:view];
+                CGPoint velocity = [pan velocityInView:view];
+
+                KSLog(@"state=%ld",
+                      (long)pan.state);
+
+                KSLog(@"translation=(%.1f, %.1f)",
+                      translation.x,
+                      translation.y);
+
+                KSLog(@"velocity=(%.1f, %.1f)",
+                      velocity.x,
+                      velocity.y);
+            }
+
             KSSaveLog();
         }
     }
@@ -159,7 +136,7 @@ static void KSLogGesture(UIGestureRecognizer *gr,
 
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"Kickstand TARGET PROBE LOADED");
+    KSLog(@"Kickstand DISMISS PROBE LOADED");
     KSLog(@"========================================");
 
     KSSaveLog();
