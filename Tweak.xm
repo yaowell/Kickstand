@@ -1,17 +1,17 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 
-static NSString *KPPath(void) {
-    return @"/var/mobile/Documents/KeepNotificationProbe.log";
+static NSString *KSPath(void) {
+    return @"/var/mobile/Documents/Kickstand.log";
 }
 
-static void KPLog(NSString *format, ...) {
+static void KSLog(NSString *format, ...) {
     va_list args;
     va_start(args, format);
     NSString *s = [[NSString alloc] initWithFormat:format arguments:args];
     va_end(args);
 
-    NSString *old = [NSString stringWithContentsOfFile:KPPath()
+    NSString *old = [NSString stringWithContentsOfFile:KSPath()
                                                encoding:NSUTF8StringEncoding
                                                   error:nil];
 
@@ -23,18 +23,18 @@ static void KPLog(NSString *format, ...) {
         out = [out substringFromIndex:out.length - 400000];
     }
 
-    [out writeToFile:KPPath()
+    [out writeToFile:KSPath()
           atomically:YES
             encoding:NSUTF8StringEncoding
                error:nil];
 }
 
-static NSString *KPClass(id obj) {
+static NSString *KSClass(id obj) {
     if (!obj) return @"<nil>";
     return NSStringFromClass([obj class]);
 }
 
-static BOOL KPInterestingClass(Class cls) {
+static BOOL KSInterestingClass(Class cls) {
     if (!cls) return NO;
 
     NSString *n = NSStringFromClass(cls);
@@ -58,24 +58,24 @@ static BOOL KPInterestingClass(Class cls) {
     return NO;
 }
 
-static void KPLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
-    if (!KPInterestingClass([gr class])) return;
+static void KSLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
+    if (!KSInterestingClass([gr class])) return;
 
     UIView *view = gr.view;
 
-    KPLog(@"[GR] %@ | class=%@ state=%ld view=%@",
+    KSLog(@"[GR] %@ | class=%@ state=%ld view=%@",
           reason,
-          KPClass(gr),
+          KSClass(gr),
           (long)gr.state,
-          KPClass(view));
+          KSClass(view));
 
     UIView *v = view;
     int level = 0;
 
     while (v && level < 8) {
-        KPLog(@"    view[%d] = %@ frame=%@",
+        KSLog(@"    view[%d] = %@ frame=%@",
               level,
-              KPClass(v),
+              KSClass(v),
               NSStringFromCGRect(v.frame));
 
         v = v.superview;
@@ -86,10 +86,10 @@ static void KPLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
 %hook UIGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    BOOL interesting = KPInterestingClass([self class]);
+    BOOL interesting = KSInterestingClass([self class]);
 
     if (interesting) {
-        KPLogRecognizer(self,
+        KSLogRecognizer(self,
                         [NSString stringWithFormat:@"BEFORE state=%ld -> %ld",
                          (long)self.state,
                          (long)state]);
@@ -98,7 +98,7 @@ static void KPLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
     %orig;
 
     if (interesting) {
-        KPLogRecognizer(self,
+        KSLogRecognizer(self,
                         [NSString stringWithFormat:@"AFTER state=%ld",
                          (long)self.state]);
     }
@@ -107,7 +107,6 @@ static void KPLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
 %end
 
 static BOOL gTouchActive = NO;
-static BOOL gTouchLogged = NO;
 
 %hook UIApplication
 
@@ -117,14 +116,13 @@ static BOOL gTouchLogged = NO;
     for (UITouch *touch in touches) {
         if (touch.phase == UITouchPhaseBegan) {
             gTouchActive = YES;
-            gTouchLogged = NO;
 
             UIWindow *window = touch.window;
 
-            KPLog(@"");
-            KPLog(@"========== TOUCH BEGAN ==========");
-            KPLog(@"window=%@ key=%d hidden=%d",
-                  KPClass(window),
+            KSLog(@"");
+            KSLog(@"========== TOUCH BEGAN ==========");
+            KSLog(@"window=%@ key=%d hidden=%d",
+                  KSClass(window),
                   window.isKeyWindow,
                   window.hidden);
 
@@ -132,27 +130,25 @@ static BOOL gTouchLogged = NO;
             int level = 0;
 
             while (v && level < 10) {
-                KPLog(@"view[%d]=%@ frame=%@",
+                KSLog(@"view[%d]=%@ frame=%@",
                       level,
-                      KPClass(v),
+                      KSClass(v),
                       NSStringFromCGRect(v.frame));
 
                 for (UIGestureRecognizer *gr in v.gestureRecognizers) {
-                    KPLogRecognizer(gr, @"ATTACHED");
+                    KSLogRecognizer(gr, @"ATTACHED");
                 }
 
                 v = v.superview;
                 level++;
             }
-
-            gTouchLogged = YES;
         }
 
         if (gTouchActive &&
             (touch.phase == UITouchPhaseEnded ||
              touch.phase == UITouchPhaseCancelled)) {
 
-            KPLog(@"========== TOUCH %@ ==========",
+            KSLog(@"========== TOUCH %@ ==========",
                   touch.phase == UITouchPhaseEnded ? @"ENDED" : @"CANCELLED");
 
             gTouchActive = NO;
@@ -165,8 +161,8 @@ static BOOL gTouchLogged = NO;
 %end
 
 %ctor {
-    KPLog(@"");
-    KPLog(@"========================================");
-    KPLog(@"KeepNotificationProbe LOADED");
-    KPLog(@"========================================");
+    KSLog(@"");
+    KSLog(@"========================================");
+    KSLog(@"Kickstand PROBE LOADED");
+    KSLog(@"========================================");
 }
