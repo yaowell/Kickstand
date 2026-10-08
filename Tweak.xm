@@ -1,84 +1,67 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
-static void KSLog(NSString *s) {
-    NSString *p = @"/var/mobile/Documents/Kickstand.log";
-    NSString *old = [NSString stringWithContentsOfFile:p
-                                              encoding:NSUTF8StringEncoding
-                                                 error:nil];
-    if (!old) old = @"";
-    [[old stringByAppendingFormat:@"%@\n", s]
-        writeToFile:p
-        atomically:YES
-        encoding:NSUTF8StringEncoding
-        error:nil];
-}
+static void KSLog(NSString *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    NSString *s = [[NSString alloc] initWithFormat:fmt arguments:args];
+    va_end(args);
 
-static BOOL KSIsTarget(id gesture) {
-    NSString *name = gesture ? NSStringFromClass([gesture class]) : @"";
-    return [name isEqualToString:@"CSScrollViewPanGestureRecognizer"] ||
-           [name isEqualToString:@"UIScrollViewPanGestureRecognizer"] ||
-           [name isEqualToString:@"SBCoverSheetScreenEdgePanGestureRecognizer"];
-}
+    NSString *line = [NSString stringWithFormat:@"[Kickstand] %@\n", s];
+    NSString *path = @"/var/mobile/Documents/Kickstand.log";
 
-%hook UIGestureRecognizer
-
-- (void)requireGestureRecognizerToFail:(UIGestureRecognizer *)other {
-    if (KSIsTarget(self) || KSIsTarget(other)) {
-        KSLog([NSString stringWithFormat:
-               @"REQUIRE %@ -> %@",
-               NSStringFromClass([self class]),
-               NSStringFromClass([other class])]);
+    NSFileHandle *f = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (!f) {
+        [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    } else {
+        [f seekToEndOfFile];
+        [f writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+        [f closeFile];
     }
+}
 
+%hook SBCoverSheetPrimarySlidingViewController
+
+- (void)grabberTongueWillPresent:(id)gesture {
+    KSLog(@"WILL_PRESENT gesture=%@", NSStringFromClass([gesture class]));
     %orig;
 }
 
-- (BOOL)canPreventGestureRecognizer:(UIGestureRecognizer *)other {
-    BOOL r = %orig;
-
-    if (KSIsTarget(self) || KSIsTarget(other)) {
-        KSLog([NSString stringWithFormat:
-               @"CANPREVENT %@ -> %@ = %d",
-               NSStringFromClass([self class]),
-               NSStringFromClass([other class]),
-               r]);
-    }
-
-    return r;
+- (void)grabberTongueUpdatedPulling:(id)tongue
+                       withDistance:(double)distance
+                        andVelocity:(double)velocity
+                         andGesture:(id)gesture {
+    KSLog(@"UPDATED distance=%.1f velocity=%.1f gesture=%@",
+          distance,
+          velocity,
+          NSStringFromClass([gesture class]));
+    %orig;
 }
 
-- (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)other {
-    BOOL r = %orig;
-
-    if (KSIsTarget(self) || KSIsTarget(other)) {
-        KSLog([NSString stringWithFormat:
-               @"CANBEPREVENT %@ <- %@ = %d",
-               NSStringFromClass([self class]),
-               NSStringFromClass([other class]),
-               r]);
-    }
-
-    return r;
+- (void)grabberTongueEndedPulling:(id)tongue
+                     withDistance:(double)distance
+                      andVelocity:(double)velocity
+                       andGesture:(id)gesture {
+    KSLog(@"ENDED distance=%.1f velocity=%.1f gesture=%@",
+          distance,
+          velocity,
+          NSStringFromClass([gesture class]));
+    %orig;
 }
 
-%end
+- (void)grabberTongueDidDismiss {
+    KSLog(@"DID_DISMISS");
+    %orig;
+}
 
-%hook UIScrollView
-
-- (void)setContentOffset:(CGPoint)offset {
-    Class cls = NSClassFromString(@"CSScrollView");
-
-    if (cls && [self isKindOfClass:cls]) {
-        static CGFloat lastY = -99999;
-
-        if (fabs(offset.y - lastY) > 10.0) {
-            KSLog([NSString stringWithFormat:
-                   @"CS OFFSET y=%.1f", offset.y]);
-            lastY = offset.y;
-        }
-    }
-
+- (void)grabberTongueCanceledPulling:(id)tongue
+                        withDistance:(double)distance
+                         andVelocity:(double)velocity
+                          andGesture:(id)gesture {
+    KSLog(@"CANCELED distance=%.1f velocity=%.1f gesture=%@",
+          distance,
+          velocity,
+          NSStringFromClass([gesture class]));
     %orig;
 }
 
