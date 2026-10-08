@@ -1,0 +1,10 @@
+Package: com.yaowell.kickstand
+Name: Kickstand
+Version: 0.1
+Architecture: iphoneos-arm64
+Description: Prevent Notification Center from collapsing after swiping up to open it.
+Maintainer: yaowell
+Author: yaowell
+Section: Tweaks
+Priority: optional
+Depends: mobilesubstrate
