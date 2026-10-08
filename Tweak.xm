@@ -17,17 +17,16 @@ static void KSLog(NSString *s) {
 }
 
 static BOOL KSIsCSScrollView(UIScrollView *view) {
-    if (!view) return NO;
-
     Class cls = NSClassFromString(@"CSScrollView");
-    if (!cls) return NO;
-
-    return [view isKindOfClass:cls];
+    return cls && view && [view isKindOfClass:cls];
 }
 
-static void KSLogPan(UIPanGestureRecognizer *pan, NSString *tag) {
-    CGPoint t = [pan translationInView:pan.view];
-    CGPoint v = [pan velocityInView:pan.view];
+static void KSLogPan(id gesture, NSString *tag) {
+    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+    UIView *view = pan.view;
+
+    CGPoint t = [pan translationInView:view];
+    CGPoint v = [pan velocityInView:view];
 
     KSLog([NSString stringWithFormat:
            @"%@ state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
@@ -42,7 +41,7 @@ static void KSLogPan(UIPanGestureRecognizer *pan, NSString *tag) {
 %hook UIScrollViewPanGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    UIScrollView *view = (UIScrollView *)self.view;
+    UIScrollView *view = (UIScrollView *)((UIPanGestureRecognizer *)self).view;
 
     if (KSIsCSScrollView(view)) {
         if (state == UIGestureRecognizerStateBegan ||
