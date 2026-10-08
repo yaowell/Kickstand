@@ -1,30 +1,24 @@
 #import <UIKit/UIKit.h>
 
-static BOOL KickstandHandling = NO;
+@interface SBCoverSheetSlidingViewController : NSObject
+- (void)_commitTransitionToAppeared:(BOOL)arg1 animated:(BOOL)arg2;
+@end
 
-%hook UIPanGestureRecognizer
+%hook SBCoverSheetSlidingViewController
 
-- (void)setState:(UIGestureRecognizerState)state {
-    UIView *view = self.view;
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(UIGestureRecognizer *)gesture {
+    CGPoint velocity = [gesture velocityInView:gesture.view];
 
-    if (!KickstandHandling &&
-        state == UIGestureRecognizerStateEnded &&
-        [view isKindOfClass:NSClassFromString(@"NCNotificationListView")]) {
+    if (velocity.y > 0 &&
+        [gesture isKindOfClass:NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer")]) {
 
-        CGPoint velocity = [self velocityInView:view];
+        %orig;
 
-        if (velocity.y > 0) {
-            KickstandHandling = YES;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self _commitTransitionToAppeared:YES animated:YES];
+        });
 
-            self.enabled = NO;
-
-            dispatch_async(dispatch_get_main_queue(), ^{
-                self.enabled = YES;
-                KickstandHandling = NO;
-            });
-
-            return;
-        }
+        return;
     }
 
     %orig;
