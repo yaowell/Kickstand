@@ -23,34 +23,31 @@ static void KSLog(NSString *fmt, ...) {
     }
 }
 
-static void KSLogTargets(UIGestureRecognizer *gesture) {
+static void KSFindTargetAction(UIGestureRecognizer *gesture) {
     if (KSLogged)
         return;
 
     UIView *view = [(UIGestureRecognizer *)gesture view];
-    if (!view)
-        return;
 
-    if (![NSStringFromClass([view class]) isEqualToString:@"NCNotificationListView"])
+    if (!view ||
+        ![NSStringFromClass([view class]) isEqualToString:@"NCNotificationListView"])
         return;
 
     KSLogged = YES;
 
-    KSLog(@"TARGET ACTION class=%@", NSStringFromClass([gesture class]));
+    KSLog(@"GESTURE class=%@", NSStringFromClass([gesture class]));
 
-    Ivar targetsIvar = class_getInstanceVariable(object_getClass(gesture), "_targets");
-    if (!targetsIvar)
-        targetsIvar = class_getInstanceVariable([gesture class], "_targets");
+    Ivar targetsIvar = class_getInstanceVariable([UIGestureRecognizer class], "_targets");
 
     if (!targetsIvar) {
-        KSLog(@"_targets IVAR NOT FOUND");
+        KSLog(@"_targets NOT FOUND");
         return;
     }
 
     id targets = object_getIvar(gesture, targetsIvar);
 
     if (![targets isKindOfClass:[NSArray class]]) {
-        KSLog(@"_targets is not NSArray: %@", NSStringFromClass([targets class]));
+        KSLog(@"_targets invalid");
         return;
     }
 
@@ -58,22 +55,28 @@ static void KSLogTargets(UIGestureRecognizer *gesture) {
         Ivar targetIvar = class_getInstanceVariable([item class], "_target");
         Ivar actionIvar = class_getInstanceVariable([item class], "_action");
 
-        id target = targetIvar ? object_getIvar(item, targetIvar) : nil;
-        id action = actionIvar ? object_getIvar(item, actionIvar) : nil;
+        id target = nil;
+        SEL action = NULL;
 
-        KSLog(@"TARGET=%@ ACTION=%@ TARGETCLASS=%@",
-              target,
-              action,
-              target ? NSStringFromClass([target class]) : @"(null)");
+        if (targetIvar)
+            target = object_getIvar(item, targetIvar);
+
+        if (actionIvar) {
+            ptrdiff_t offset = ivar_getOffset(actionIvar);
+            action = *(SEL *)((uint8_t *)(__bridge void *)item + offset);
+        }
+
+        KSLog(@"TARGETCLASS=%@ ACTION=%@",
+              target ? NSStringFromClass([target class]) : @"(null)",
+              action ? NSStringFromSelector(action) : @"(null)");
     }
 }
 
 %hook UIPanGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    if (state == UIGestureRecognizerStateBegan) {
-        KSLogTargets((UIGestureRecognizer *)self);
-    }
+    if (state == UIGestureRecognizerStateBegan)
+        KSFindTargetAction((UIGestureRecognizer *)self);
 
     %orig;
 }
