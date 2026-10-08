@@ -7,18 +7,19 @@
 %hook SBCoverSheetSlidingViewController
 
 - (void)_presentOrDismissGestureEndedWithGestureRecognizer:(UIGestureRecognizer *)gesture {
-    CGPoint velocity = [gesture velocityInView:gesture.view];
+    if ([gesture isKindOfClass:NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer")]) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+        CGPoint velocity = [pan velocityInView:pan.view];
 
-    if (velocity.y > 0 &&
-        [gesture isKindOfClass:NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer")]) {
+        if (velocity.y > 0) {
+            %orig;
 
-        %orig;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self _commitTransitionToAppeared:YES animated:YES];
+            });
 
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self _commitTransitionToAppeared:YES animated:YES];
-        });
-
-        return;
+            return;
+        }
     }
 
     %orig;
