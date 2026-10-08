@@ -1,94 +1,30 @@
-#import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 
 static void KSLog(NSString *text) {
     NSString *path = @"/var/mobile/Documents/Kickstand.log";
-    NSString *old = [NSString stringWithContentsOfFile:path
-                                              encoding:NSUTF8StringEncoding
-                                                 error:nil];
+    NSString *old = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
     if (!old) old = @"";
-
     NSString *out = [old stringByAppendingFormat:@"%@\n", text];
-    [out writeToFile:path
-          atomically:YES
-            encoding:NSUTF8StringEncoding
-               error:nil];
+    [out writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
-static void KSDumpView(UIView *view, NSInteger depth) {
-    if (!view || depth > 8) return;
+static void DumpMethod(Class cls, NSString *name) {
+    SEL sel = NSSelectorFromString(name);
+    Method m = class_getInstanceMethod(cls, sel);
 
-    NSString *indent = @"";
-    for (NSInteger i = 0; i < depth; i++) {
-        indent = [indent stringByAppendingString:@"  "];
+    if (!m) {
+        KSLog([NSString stringWithFormat:@"MISSING %@ %@", NSStringFromClass(cls), name]);
+        return;
     }
 
-    NSString *name = NSStringFromClass(view.class);
+    const char *types = method_getTypeEncoding(m);
 
-    if ([view isKindOfClass:[UIScrollView class]]) {
-        UIScrollView *scroll = (UIScrollView *)view;
-
-        KSLog([NSString stringWithFormat:
-               @"%@SCROLL %@ frame=(%.0f,%.0f,%.0f,%.0f) offset=(%.1f,%.1f)",
-               indent,
-               name,
-               view.frame.origin.x,
-               view.frame.origin.y,
-               view.frame.size.width,
-               view.frame.size.height,
-               scroll.contentOffset.x,
-               scroll.contentOffset.y]);
-    } else {
-        KSLog([NSString stringWithFormat:
-               @"%@VIEW %@ frame=(%.0f,%.0f,%.0f,%.0f)",
-               indent,
-               name,
-               view.frame.origin.x,
-               view.frame.origin.y,
-               view.frame.size.width,
-               view.frame.size.height]);
-    }
-
-    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
-        KSLog([NSString stringWithFormat:
-               @"%@  GESTURE %@ state=%ld",
-               indent,
-               NSStringFromClass(gesture.class),
-               (long)gesture.state]);
-    }
-
-    for (UIView *subview in view.subviews) {
-        KSDumpView(subview, depth + 1);
-    }
-}
-
-static void KSDumpWindows(void) {
-    KSLog(@"========================================");
-    KSLog(@"KICKSTAND NOTIFICATION VIEW PROBE");
-    KSLog(@"========================================");
-
-    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-
-        UIWindowScene *windowScene = (UIWindowScene *)scene;
-
-        for (UIWindow *window in windowScene.windows) {
-            if (window.hidden || window.alpha <= 0.01) continue;
-
-            KSLog([NSString stringWithFormat:
-                   @"WINDOW %@ level=%.1f frame=(%.0f,%.0f,%.0f,%.0f)",
-                   NSStringFromClass(window.class),
-                   window.windowLevel,
-                   window.frame.origin.x,
-                   window.frame.origin.y,
-                   window.frame.size.width,
-                   window.frame.size.height]);
-
-            KSDumpView(window, 0);
-        }
-    }
-
-    KSLog(@"========================================");
+    KSLog([NSString stringWithFormat:
+           @"METHOD %@ %@ -> %s",
+           NSStringFromClass(cls),
+           name,
+           types ? types : "(null)"]);
 }
 
 %hook SBCoverSheetPrimarySlidingViewController
@@ -98,7 +34,41 @@ static void KSDumpWindows(void) {
 
     if (!dumped) {
         dumped = YES;
-        KSDumpWindows();
+
+        KSLog(@"========================================");
+        KSLog(@"KICKSTAND METHOD ENCODING PROBE");
+        KSLog(@"========================================");
+
+        Class cls = NSClassFromString(@"SBCoverSheetPrimarySlidingViewController");
+        Class superCls = NSClassFromString(@"SBCoverSheetSlidingViewController");
+
+        DumpMethod(cls, @"_handleDismissGesture:");
+        DumpMethod(cls, @"_dismissGestureChangedWithGestureRecognizer:");
+        DumpMethod(cls, @"_presentOrDismissGestureEndedWithGestureRecognizer:");
+        DumpMethod(cls, @"_cancelTransitionForGesture:");
+        DumpMethod(cls, @"_commitTransitionToAppeared:animated:");
+        DumpMethod(cls, @"_endTransitionToAppeared");
+        DumpMethod(cls, @"_finishTransitionToPresented:animated:withCompletion:");
+        DumpMethod(cls, @"_finalLocationForTransitionToPresented:");
+        DumpMethod(cls, @"_velocityForGesture:");
+        DumpMethod(cls, @"_shouldRubberBandForGestureRecognizer:");
+        DumpMethod(cls, @"_shouldEndPresentedForEndingGestureRecognizer:");
+
+        if (superCls) {
+            DumpMethod(superCls, @"_handleDismissGesture:");
+            DumpMethod(superCls, @"_dismissGestureChangedWithGestureRecognizer:");
+            DumpMethod(superCls, @"_presentOrDismissGestureEndedWithGestureRecognizer:");
+            DumpMethod(superCls, @"_cancelTransitionForGesture:");
+            DumpMethod(superCls, @"_commitTransitionToAppeared:animated:");
+            DumpMethod(superCls, @"_endTransitionToAppeared");
+            DumpMethod(superCls, @"_finishTransitionToPresented:animated:withCompletion:");
+            DumpMethod(superCls, @"_finalLocationForTransitionToPresented:");
+            DumpMethod(superCls, @"_velocityForGesture:");
+            DumpMethod(superCls, @"_shouldRubberBandForGestureRecognizer:");
+            DumpMethod(superCls, @"_shouldEndPresentedForEndingGestureRecognizer:");
+        }
+
+        KSLog(@"========================================");
     }
 
     %orig;
