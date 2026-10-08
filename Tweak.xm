@@ -1,13 +1,22 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
+#import <objc/message.h>
 
 static void KSLog(NSString *s) {
     NSString *p = @"/var/mobile/Documents/Kickstand.log";
-    NSString *old = [NSString stringWithContentsOfFile:p encoding:NSUTF8StringEncoding error:nil];
+    NSString *old = [NSString stringWithContentsOfFile:p
+                                              encoding:NSUTF8StringEncoding
+                                                 error:nil];
     if (!old) old = @"";
     [[old stringByAppendingFormat:@"%@\n", s]
-        writeToFile:p atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        writeToFile:p
+        atomically:YES
+        encoding:NSUTF8StringEncoding
+        error:nil];
 }
+
+static BOOL gTrace = NO;
 
 %hook SBCoverSheetSlidingViewController
 
@@ -15,33 +24,73 @@ static void KSLog(NSString *s) {
     Class cls = NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer");
 
     if (cls && [gesture isKindOfClass:cls]) {
-        KSLog(@"========== DISMISS END BEGIN ==========");
+        gTrace = YES;
+        KSLog(@"========== TRACE BEGIN ==========");
     }
 
     %orig;
 
     if (cls && [gesture isKindOfClass:cls]) {
-        KSLog(@"========== DISMISS END AFTER ==========");
+        KSLog(@"========== TRACE END ==========");
+        gTrace = NO;
     }
 }
 
+- (void)_cancelTransitionForGesture:(id)gesture {
+    if (gTrace) {
+        KSLog(@"CALL _cancelTransitionForGesture:");
+    }
+    %orig;
+}
+
+- (void)_commitTransitionToAppeared:(BOOL)animated {
+    if (gTrace) {
+        KSLog([NSString stringWithFormat:
+               @"CALL _commitTransitionToAppeared:animated: %d",
+               animated]);
+    }
+    %orig;
+}
+
+- (void)_finishTransitionToPresented:(BOOL)animated
+                    withCompletion:(id)completion {
+    if (gTrace) {
+        KSLog([NSString stringWithFormat:
+               @"CALL _finishTransitionToPresented:animated: %d",
+               animated]);
+    }
+    %orig;
+}
+
 - (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
-    Class cls = NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer");
+    if (gTrace) {
+        KSLog(@"CALL _dismissGestureChangedWithGestureRecognizer:");
+    }
+    %orig;
+}
 
-    if (cls && [gesture isKindOfClass:cls]) {
-        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+- (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture {
+    BOOL r = %orig;
 
-        if (pan.state == UIGestureRecognizerStateChanged) {
-            CGPoint t = [pan translationInView:pan.view];
-            CGPoint v = [pan velocityInView:pan.view];
-
-            KSLog([NSString stringWithFormat:
-                   @"DISMISS CHANGED t=(%.1f,%.1f) v=(%.1f,%.1f)",
-                   t.x, t.y, v.x, v.y]);
-        }
+    if (gTrace) {
+        KSLog([NSString stringWithFormat:
+               @"CALL _shouldEndPresentedForEndingGestureRecognizer: -> %d",
+               r]);
     }
 
-    %orig;
+    return r;
+}
+
+- (BOOL)_shouldRubberBandForGestureRecognizer:(id)gesture {
+    BOOL r = %orig;
+
+    if (gTrace) {
+        KSLog([NSString stringWithFormat:
+               @"CALL _shouldRubberBandForGestureRecognizer: -> %d",
+               r]);
+    }
+
+    return r;
 }
 
 %end
