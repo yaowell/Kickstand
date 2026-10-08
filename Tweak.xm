@@ -67,21 +67,25 @@ static void KSDumpWindows(void) {
     KSLog(@"KICKSTAND NOTIFICATION VIEW PROBE");
     KSLog(@"========================================");
 
-    NSArray *windows = [UIApplication sharedApplication].windows;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
 
-    for (UIWindow *window in windows) {
-        if (window.hidden || window.alpha <= 0.01) continue;
+        UIWindowScene *windowScene = (UIWindowScene *)scene;
 
-        KSLog([NSString stringWithFormat:
-               @"WINDOW %@ level=%.1f frame=(%.0f,%.0f,%.0f,%.0f)",
-               NSStringFromClass(window.class),
-               window.windowLevel,
-               window.frame.origin.x,
-               window.frame.origin.y,
-               window.frame.size.width,
-               window.frame.size.height]);
+        for (UIWindow *window in windowScene.windows) {
+            if (window.hidden || window.alpha <= 0.01) continue;
 
-        KSDumpView(window, 0);
+            KSLog([NSString stringWithFormat:
+                   @"WINDOW %@ level=%.1f frame=(%.0f,%.0f,%.0f,%.0f)",
+                   NSStringFromClass(window.class),
+                   window.windowLevel,
+                   window.frame.origin.x,
+                   window.frame.origin.y,
+                   window.frame.size.width,
+                   window.frame.size.height]);
+
+            KSDumpView(window, 0);
+        }
     }
 
     KSLog(@"========================================");
