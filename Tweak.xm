@@ -111,7 +111,7 @@ static BOOL gTouchActive = NO;
 %hook UIApplication
 
 - (void)sendEvent:(UIEvent *)event {
-    NSSet *touches = [event touchesForWindow:nil];
+    NSSet *touches = event.allTouches;
 
     for (UITouch *touch in touches) {
         if (touch.phase == UITouchPhaseBegan) {
