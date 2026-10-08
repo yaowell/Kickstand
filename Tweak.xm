@@ -1,6 +1,5 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-#import <objc/runtime.h>
 
 static NSMutableString *gLog;
 static NSMutableSet *gSeen;
@@ -35,131 +34,72 @@ static void KSSaveLog(void) {
                 error:nil];
 }
 
-static NSString *KSClass(id obj) {
-    if (!obj) return @"<nil>";
-    return NSStringFromClass([obj class]);
+static BOOL KSTargetGesture(UIGestureRecognizer *gr) {
+    NSString *name = NSStringFromClass([gr class]);
+
+    return [name isEqualToString:@"SBCoverSheetPresentationGestureRecognizer"] ||
+           [name isEqualToString:@"SBCoverSheetScreenEdgePanGestureRecognizer"];
 }
 
-static BOOL KSInterestingClass(Class cls) {
-    if (!cls) return NO;
-
-    NSString *name = NSStringFromClass(cls);
-
-    NSArray *keys = @[
-        @"Notification",
-        @"CoverSheet",
-        @"SBCover",
-        @"NC",
-        @"Lock",
-        @"Bulletin"
-    ];
-
-    for (NSString *key in keys) {
-        if ([name rangeOfString:key
-                        options:NSCaseInsensitiveSearch].location != NSNotFound) {
-            return YES;
-        }
+static NSString *KSState(UIGestureRecognizerState state) {
+    switch (state) {
+        case UIGestureRecognizerStatePossible:
+            return @"POSSIBLE";
+        case UIGestureRecognizerStateBegan:
+            return @"BEGAN";
+        case UIGestureRecognizerStateChanged:
+            return @"CHANGED";
+        case UIGestureRecognizerStateEnded:
+            return @"ENDED";
+        case UIGestureRecognizerStateCancelled:
+            return @"CANCELLED";
+        case UIGestureRecognizerStateFailed:
+            return @"FAILED";
     }
 
-    return NO;
+    return @"UNKNOWN";
 }
 
-static void KSDescribeGesture(UIGestureRecognizer *gr,
-                              NSString *event) {
-    if (!gr) return;
-
-    Class cls = [gr class];
-
-    if (!KSInterestingClass(cls)) return;
-
-    NSString *className = NSStringFromClass(cls);
-
-    if (!gSeen) {
-        gSeen = [NSMutableSet set];
-    }
-
-    NSString *key = [NSString stringWithFormat:@"%@:%@",
-                     className,
-                     event];
-
-    if ([gSeen containsObject:key]) {
-        return;
-    }
-
-    [gSeen addObject:key];
+static void KSLogGesture(UIGestureRecognizer *gr,
+                         UIGestureRecognizerState state) {
+    if (!KSTargetGesture(gr)) return;
 
     UIView *view = gr.view;
 
+    CGPoint translation = [gr translationInView:view];
+    CGPoint velocity = [gr velocityInView:view];
+    CGPoint location = [gr locationInView:view];
+
+    NSString *name = NSStringFromClass([gr class]);
+
     KSLog(@"");
-    KSLog(@"[GESTURE]");
-    KSLog(@"event=%@", event);
-    KSLog(@"class=%@", className);
-    KSLog(@"state=%ld", (long)gr.state);
-    KSLog(@"view=%@", KSClass(view));
-
-    if (view) {
-        KSLog(@"viewFrame=%@", NSStringFromCGRect(view.frame));
-    }
-
-    UIView *superview = view.superview;
-
-    int level = 0;
-
-    while (superview && level < 5) {
-        KSLog(@"super[%d]=%@ frame=%@",
-              level,
-              KSClass(superview),
-              NSStringFromCGRect(superview.frame));
-
-        superview = superview.superview;
-        level++;
-    }
+    KSLog(@"========== %@ ==========", name);
+    KSLog(@"state=%@", KSState(state));
+    KSLog(@"translation=(%.1f, %.1f)",
+          translation.x,
+          translation.y);
+    KSLog(@"velocity=(%.1f, %.1f)",
+          velocity.x,
+          velocity.y);
+    KSLog(@"location=(%.1f, %.1f)",
+          location.x,
+          location.y);
+    KSLog(@"view=%@",
+          view ? NSStringFromClass([view class]) : @"<nil>");
 }
 
 %hook UIGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    if (KSInterestingClass([self class])) {
-        UIGestureRecognizerState oldState = self.state;
+    if (KSTargetGesture(self) &&
+        self.state != state) {
 
-        if (oldState != state) {
-            NSString *event = nil;
+        KSLogGesture(self, state);
 
-            switch (state) {
-                case UIGestureRecognizerStatePossible:
-                    event = @"POSSIBLE";
-                    break;
-
-                case UIGestureRecognizerStateBegan:
-                    event = @"BEGAN";
-                    break;
-
-                case UIGestureRecognizerStateChanged:
-                    event = @"CHANGED";
-                    break;
-
-                case UIGestureRecognizerStateEnded:
-                    event = @"ENDED";
-                    break;
-
-                case UIGestureRecognizerStateCancelled:
-                    event = @"CANCELLED";
-                    break;
-
-                case UIGestureRecognizerStateFailed:
-                    event = @"FAILED";
-                    break;
-            }
-
-            if (event) {
-                KSDescribeGesture(self, event);
-
-                if (state == UIGestureRecognizerStateEnded ||
-                    state == UIGestureRecognizerStateCancelled ||
-                    state == UIGestureRecognizerStateFailed) {
-                    KSSaveLog();
-                }
-            }
+        if (state == UIGestureRecognizerStateEnded ||
+            state == UIGestureRecognizerStateCancelled ||
+            state == UIGestureRecognizerStateFailed) {
+            KSSaveLog();
         }
     }
 
@@ -174,7 +114,7 @@ static void KSDescribeGesture(UIGestureRecognizer *gr,
 
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"Kickstand LIGHT PROBE LOADED");
+    KSLog(@"Kickstand DIRECTION PROBE LOADED");
     KSLog(@"========================================");
 
     KSSaveLog();
