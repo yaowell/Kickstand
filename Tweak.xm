@@ -11,30 +11,37 @@ static void KSLog(NSString *s) {
 
 %hook SBCoverSheetSlidingViewController
 
-- (CGPoint)_velocityForGesture:(id)gesture {
-    CGPoint r = %orig;
-
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
     Class cls = NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer");
+
     if (cls && [gesture isKindOfClass:cls]) {
-        KSLog([NSString stringWithFormat:
-               @"VELOCITY gesture=%@ -> (%.1f,%.1f)",
-               NSStringFromClass([gesture class]), r.x, r.y]);
+        KSLog(@"========== DISMISS END BEGIN ==========");
     }
 
-    return r;
+    %orig;
+
+    if (cls && [gesture isKindOfClass:cls]) {
+        KSLog(@"========== DISMISS END AFTER ==========");
+    }
 }
 
-- (CGPoint)_finalLocationForTransitionToPresented:(id)gesture {
-    CGPoint r = %orig;
-
+- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
     Class cls = NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer");
+
     if (cls && [gesture isKindOfClass:cls]) {
-        KSLog([NSString stringWithFormat:
-               @"FINAL LOCATION gesture=%@ -> (%.1f,%.1f)",
-               NSStringFromClass([gesture class]), r.x, r.y]);
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+
+        if (pan.state == UIGestureRecognizerStateChanged) {
+            CGPoint t = [pan translationInView:pan.view];
+            CGPoint v = [pan velocityInView:pan.view];
+
+            KSLog([NSString stringWithFormat:
+                   @"DISMISS CHANGED t=(%.1f,%.1f) v=(%.1f,%.1f)",
+                   t.x, t.y, v.x, v.y]);
+        }
     }
 
-    return r;
+    %orig;
 }
 
 %end
