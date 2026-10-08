@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-#import <objc/runtime.h>
+
+static int KSCount = 0;
 
 static void KSLog(NSString *fmt, ...) {
     va_list args;
@@ -21,24 +22,35 @@ static void KSLog(NSString *fmt, ...) {
     }
 }
 
-%hook CCUIDismissalGestureRecognizer
+%hook UIGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    if (state == UIGestureRecognizerStateBegan ||
-        state == UIGestureRecognizerStateChanged ||
-        state == UIGestureRecognizerStateEnded ||
-        state == UIGestureRecognizerStateCancelled ||
-        state == UIGestureRecognizerStateFailed) {
+    if (state == UIGestureRecognizerStateBegan && KSCount < 3) {
+        KSCount++;
 
-        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)self;
-        UIView *view = [(UIGestureRecognizer *)self view];
+        NSString *cls = NSStringFromClass([self class]);
+        NSString *viewCls = self.view ? NSStringFromClass([self.view class]) : @"(null)";
 
-        KSLog(@"CCUIDismissal state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
-              (long)state,
-              [pan translationInView:view].x,
-              [pan translationInView:view].y,
-              [pan velocityInView:view].x,
-              [pan velocityInView:view].y);
+        CGPoint t = CGPointZero;
+        CGPoint v = CGPointZero;
+
+        if ([self isKindOfClass:[UIPanGestureRecognizer class]]) {
+            UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)self;
+            UIView *view = self.view;
+            t = [pan translationInView:view];
+            v = [pan velocityInView:view];
+        }
+
+        KSLog(@"ACTION %d recognizer=%@ view=%@ translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
+              KSCount,
+              cls,
+              viewCls,
+              t.x, t.y,
+              v.x, v.y);
+
+        if (KSCount >= 3) {
+            KSLog(@"=== THREE ACTIONS CAPTURED ===");
+        }
     }
 
     %orig;
