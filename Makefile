@@ -1,15 +1,17 @@
-TARGET := iphone:clang:16.5:16.0
-ARCHS := arm64
+TARGET := iphone:clang:latest:16.0
+ARCHS := arm64 arm64e
+THEOS_PACKAGE_SCHEME := roothide
+INSTALL_TARGET_PROCESSES = SpringBoard
 
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME := KeepNotificationProbe
+TWEAK_NAME = Kickstand
 
-KeepNotificationProbe_FILES := Tweak.xm
-KeepNotificationProbe_CFLAGS := -fobjc-arc
-KeepNotificationProbe_FRAMEWORKS := UIKit Foundation
+Kickstand_FILES = Tweak.xm
+Kickstand_FRAMEWORKS = UIKit Foundation CoreFoundation QuartzCore
+Kickstand_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 after-install::
-	install.exec "killall -9 SpringBoard"
+	install.exec "sbreload"
