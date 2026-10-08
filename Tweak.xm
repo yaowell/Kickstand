@@ -16,37 +16,37 @@ static void KSLog(NSString *text) {
 
 %hook SBCoverSheetSlidingViewController
 
-- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
-    KSLog(@"DISMISS_CHANGED");
-    %orig;
+- (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture {
+    BOOL r = %orig;
+    KSLog([NSString stringWithFormat:@"SHOULD_END=%d", r]);
+    return r;
+}
+
+- (CGFloat)_finalLocationForTransitionToPresented:(id)gesture {
+    CGFloat r = %orig(gesture);
+    KSLog([NSString stringWithFormat:@"FINAL_LOCATION=%f", r]);
+    return r;
+}
+
+- (CGFloat)_velocityForGesture:(id)gesture {
+    CGFloat r = %orig(gesture);
+    KSLog([NSString stringWithFormat:@"VELOCITY=%f", r]);
+    return r;
+}
+
+- (BOOL)_shouldRubberBandForGestureRecognizer:(id)gesture {
+    BOOL r = %orig(gesture);
+    KSLog([NSString stringWithFormat:@"RUBBER_BAND=%d", r]);
+    return r;
 }
 
 - (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
-    KSLog(@"PRESENT_DISMISS_ENDED");
+    KSLog(@"ENDED");
     %orig;
 }
 
-- (void)_cancelTransitionForGesture:(id)gesture {
-    KSLog(@"CANCEL_TRANSITION");
-    %orig;
-}
-
-- (void)_commitTransitionToAppeared:(BOOL)animated {
-    KSLog([NSString stringWithFormat:@"COMMIT_APPEARED %d", animated]);
-    %orig(animated);
-}
-
-- (void)_finishTransitionToPresented:(BOOL)animated
-                      withCompletion:(id)completion {
-    KSLog([NSString stringWithFormat:@"FINISH_PRESENTED %d", animated]);
-    %orig(animated, completion);
-}
-
-%end
-
-%hook SBCoverSheetPrimarySlidingViewController
-
-- (void)_handleDismissGesture:(id)gesture {
+- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
+    KSLog(@"CHANGED");
     %orig;
 }
 
