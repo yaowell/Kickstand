@@ -20,11 +20,40 @@ static void KSLog(NSString *text) {
     BOOL result = %orig;
 
     KSLog([NSString stringWithFormat:
-           @"_shouldEndPresentedForEndingGestureRecognizer: result=%d gesture=%@",
+           @"SHOULD_END result=%d gesture=%@",
            result,
            gesture ? NSStringFromClass([gesture class]) : @"(nil)"]);
 
     return result;
+}
+
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
+    KSLog([NSString stringWithFormat:
+           @"ENDED gesture=%@",
+           gesture ? NSStringFromClass([gesture class]) : @"(nil)"]);
+
+    %orig;
+}
+
+- (void)_cancelTransitionForGesture:(id)gesture {
+    KSLog([NSString stringWithFormat:
+           @"CANCEL gesture=%@",
+           gesture ? NSStringFromClass([gesture class]) : @"(nil)"]);
+
+    %orig;
+}
+
+- (void)_commitTransitionToAppeared:(BOOL)animated {
+    KSLog([NSString stringWithFormat:
+           @"COMMIT_APPEARED animated=%d",
+           animated]);
+
+    %orig(animated);
+}
+
+- (void)_endTransitionToAppeared {
+    KSLog(@"END_APPEARED");
+    %orig;
 }
 
 %end
@@ -32,7 +61,7 @@ static void KSLog(NSString *text) {
 %hook SBCoverSheetPrimarySlidingViewController
 
 - (void)_handleDismissGesture:(id)gesture {
-    KSLog(@"_handleDismissGesture called");
+    KSLog(@"DISMISS_GESTURE");
     %orig;
 }
 
