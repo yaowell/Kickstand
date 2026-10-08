@@ -1,8 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 
 static NSMutableString *gLog;
-static NSMutableSet *gSeen;
 
 static NSString *KSPath(void) {
     return @"/var/mobile/Documents/Kickstand.log";
@@ -60,32 +60,78 @@ static NSString *KSState(UIGestureRecognizerState state) {
     return @"UNKNOWN";
 }
 
+static void KSLogTargets(UIGestureRecognizer *gr) {
+    NSArray *targets = nil;
+
+    @try {
+        targets = [gr valueForKey:@"_targets"];
+    } @catch (...) {
+        targets = nil;
+    }
+
+    KSLog(@"targets=%@", targets);
+
+    if (!targets) return;
+
+    for (id targetInfo in targets) {
+        id target = nil;
+        id action = nil;
+
+        @try {
+            target = [targetInfo valueForKey:@"_target"];
+        } @catch (...) {
+        }
+
+        @try {
+            action = [targetInfo valueForKey:@"_action"];
+        } @catch (...) {
+        }
+
+        KSLog(@"target=%@ class=%@",
+              target,
+              target ? NSStringFromClass([target class]) : @"<nil>");
+
+        KSLog(@"action=%@",
+              action);
+    }
+}
+
 static void KSLogGesture(UIGestureRecognizer *gr,
                          UIGestureRecognizerState state) {
     if (!KSTargetGesture(gr)) return;
 
+    KSLog(@"");
+    KSLog(@"========================================");
+    KSLog(@"GESTURE %@", NSStringFromClass([gr class]));
+    KSLog(@"state=%@", KSState(state));
+    KSLog(@"========================================");
+
     UIView *view = gr.view;
 
-    CGPoint translation = [gr translationInView:view];
-    CGPoint velocity = [gr velocityInView:view];
-    CGPoint location = [gr locationInView:view];
-
-    NSString *name = NSStringFromClass([gr class]);
-
-    KSLog(@"");
-    KSLog(@"========== %@ ==========", name);
-    KSLog(@"state=%@", KSState(state));
-    KSLog(@"translation=(%.1f, %.1f)",
-          translation.x,
-          translation.y);
-    KSLog(@"velocity=(%.1f, %.1f)",
-          velocity.x,
-          velocity.y);
-    KSLog(@"location=(%.1f, %.1f)",
-          location.x,
-          location.y);
     KSLog(@"view=%@",
           view ? NSStringFromClass([view class]) : @"<nil>");
+
+    if ([gr isKindOfClass:[UIPanGestureRecognizer class]]) {
+        UIPanGestureRecognizer *pan =
+            (UIPanGestureRecognizer *)gr;
+
+        CGPoint translation = [pan translationInView:view];
+        CGPoint velocity = [pan velocityInView:view];
+
+        KSLog(@"translation=(%.1f, %.1f)",
+              translation.x,
+              translation.y);
+
+        KSLog(@"velocity=(%.1f, %.1f)",
+              velocity.x,
+              velocity.y);
+
+        KSLog(@"location=(%.1f, %.1f)",
+              [pan locationInView:view].x,
+              [pan locationInView:view].y);
+    }
+
+    KSLogTargets(gr);
 }
 
 %hook UIGestureRecognizer
@@ -110,11 +156,10 @@ static void KSLogGesture(UIGestureRecognizer *gr,
 
 %ctor {
     gLog = [NSMutableString string];
-    gSeen = [NSMutableSet set];
 
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"Kickstand DIRECTION PROBE LOADED");
+    KSLog(@"Kickstand TARGET PROBE LOADED");
     KSLog(@"========================================");
 
     KSSaveLog();
