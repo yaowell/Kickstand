@@ -3,10 +3,16 @@
 
 static void KSLog(NSString *text) {
     NSString *path = @"/var/mobile/Documents/Kickstand.log";
-    NSString *old = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    NSString *old = [NSString stringWithContentsOfFile:path
+                                              encoding:NSUTF8StringEncoding
+                                                 error:nil];
     if (!old) old = @"";
+
     NSString *out = [old stringByAppendingFormat:@"%@\n", text];
-    [out writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    [out writeToFile:path
+          atomically:YES
+            encoding:NSUTF8StringEncoding
+               error:nil];
 }
 
 static void DumpMethod(Class cls, NSString *name) {
@@ -14,7 +20,8 @@ static void DumpMethod(Class cls, NSString *name) {
     Method m = class_getInstanceMethod(cls, sel);
 
     if (!m) {
-        KSLog([NSString stringWithFormat:@"MISSING %@ %@", NSStringFromClass(cls), name]);
+        KSLog([NSString stringWithFormat:@"MISSING %@ %@",
+               NSStringFromClass(cls), name]);
         return;
     }
 
@@ -39,8 +46,11 @@ static void DumpMethod(Class cls, NSString *name) {
         KSLog(@"KICKSTAND METHOD ENCODING PROBE");
         KSLog(@"========================================");
 
-        Class cls = NSClassFromString(@"SBCoverSheetPrimarySlidingViewController");
-        Class superCls = NSClassFromString(@"SBCoverSheetSlidingViewController");
+        Class cls =
+            NSClassFromString(@"SBCoverSheetPrimarySlidingViewController");
+
+        Class superCls =
+            NSClassFromString(@"SBCoverSheetSlidingViewController");
 
         DumpMethod(cls, @"_handleDismissGesture:");
         DumpMethod(cls, @"_dismissGestureChangedWithGestureRecognizer:");
