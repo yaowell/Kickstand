@@ -2,45 +2,46 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 
+static NSMutableString *gLog;
+static BOOL gDumped = NO;
+
 static NSString *KSPath(void) {
     return @"/var/mobile/Documents/Kickstand.log";
 }
 
 static void KSLog(NSString *format, ...) {
+    if (!gLog) {
+        gLog = [NSMutableString string];
+    }
+
     va_list args;
     va_start(args, format);
     NSString *s = [[NSString alloc] initWithFormat:format arguments:args];
     va_end(args);
 
-    [s writeToFile:KSPath()
-        atomically:YES
-          encoding:NSUTF8StringEncoding
-             error:nil];
-
-    NSString *old = [NSString stringWithContentsOfFile:KSPath()
-                                               encoding:NSUTF8StringEncoding
-                                                  error:nil];
-
-    if (old.length > 0) {
-        NSString *out = [old stringByAppendingFormat:@"\n"];
-        [out writeToFile:KSPath()
-              atomically:YES
-                encoding:NSUTF8StringEncoding
-                   error:nil];
-    }
+    [gLog appendFormat:@"%@\n", s];
 }
 
-%ctor {
-    Class cls = objc_getClass("SBCoverSheetPrimarySlidingViewController");
+static void KSSave(void) {
+    if (!gLog) return;
 
-    if (!cls) {
-        KSLog(@"SBCoverSheetPrimarySlidingViewController NOT FOUND");
-        return;
-    }
+    [gLog writeToFile:KSPath()
+           atomically:YES
+             encoding:NSUTF8StringEncoding
+                error:nil];
+}
+
+static void KSDumpMethods(id obj) {
+    if (gDumped || !obj) return;
+
+    gDumped = YES;
+
+    Class cls = object_getClass(obj);
 
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"Kickstand METHOD PROBE");
+    KSLog(@"METHOD DUMP");
+    KSLog(@"class=%@", NSStringFromClass(cls));
     KSLog(@"========================================");
 
     unsigned int count = 0;
@@ -49,7 +50,6 @@ static void KSLog(NSString *format, ...) {
     for (unsigned int i = 0; i < count; i++) {
         SEL sel = method_getName(methods[i]);
         NSString *name = NSStringFromSelector(sel);
-
         NSString *lower = [name lowercaseString];
 
         if ([lower containsString:@"dismiss"] ||
@@ -58,7 +58,9 @@ static void KSLog(NSString *format, ...) {
             [lower containsString:@"present"] ||
             [lower containsString:@"slide"] ||
             [lower containsString:@"animate"] ||
-            [lower containsString:@"cancel"]) {
+            [lower containsString:@"cancel"] ||
+            [lower containsString:@"finish"] ||
+            [lower containsString:@"complete"]) {
 
             KSLog(@"METHOD: %@", name);
         }
@@ -66,8 +68,39 @@ static void KSLog(NSString *format, ...) {
 
     free(methods);
 
+    KSLog(@"========================================");
+    KSLog(@"END METHOD DUMP");
+    KSLog(@"========================================");
+
+    KSSave();
+}
+
+%hook SBCoverSheetPrimarySlidingViewController
+
+- (void)_handleDismissGesture:(id)gesture {
+    if (!gDumped) {
+        KSLog(@"");
+        KSLog(@"========================================");
+        KSLog(@"HANDLE DISMISS GESTURE FOUND");
+        KSLog(@"class=%@",
+              NSStringFromClass([self class]));
+        KSLog(@"========================================");
+
+        KSDumpMethods(self);
+    }
+
+    %orig;
+}
+
+%end
+
+%ctor {
+    gLog = [NSMutableString string];
+
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"END METHOD PROBE");
+    KSLog(@"Kickstand METHOD PROBE LOADED");
     KSLog(@"========================================");
+
+    KSSave();
 }
