@@ -15,50 +15,33 @@ static void KSLog(NSString *text) {
                error:nil];
 }
 
-static NSString *KSGestureInfo(id gesture) {
-    if (![gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
-        return [NSString stringWithFormat:@"class=%@",
-                gesture ? NSStringFromClass([gesture class]) : @"(nil)"];
-    }
-
-    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
-
-    CGPoint translation = [pan translationInView:pan.view];
-    CGPoint velocity = [pan velocityInView:pan.view];
-
-    return [NSString stringWithFormat:
-            @"class=%@ state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
-            NSStringFromClass([pan class]),
-            (long)pan.state,
-            translation.x,
-            translation.y,
-            velocity.x,
-            velocity.y];
+static BOOL KSIsDismissPan(id gesture) {
+    return [gesture isKindOfClass:[UIPanGestureRecognizer class]] &&
+           [gesture isKindOfClass:NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer")];
 }
-
-%hook SBCoverSheetSlidingViewController
-
-- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
-    KSLog([NSString stringWithFormat:
-           @"CHANGED %@", KSGestureInfo(gesture)]);
-
-    %orig;
-}
-
-- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
-    KSLog([NSString stringWithFormat:
-           @"ENDED %@", KSGestureInfo(gesture)]);
-
-    %orig;
-}
-
-%end
 
 %hook SBCoverSheetPrimarySlidingViewController
 
 - (void)_handleDismissGesture:(id)gesture {
-    KSLog([NSString stringWithFormat:
-           @"DISMISS %@", KSGestureInfo(gesture)]);
+    if (KSIsDismissPan(gesture)) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+
+        if (pan.state == UIGestureRecognizerStateEnded) {
+            CGPoint translation = [pan translationInView:pan.view];
+            CGPoint velocity = [pan velocityInView:pan.view];
+
+            KSLog([NSString stringWithFormat:
+                   @"DISMISS ENDED translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
+                   translation.x,
+                   translation.y,
+                   velocity.x,
+                   velocity.y]);
+
+            if (velocity.y < 0) {
+                KSLog(@"TRY BLOCK DISMISS");
+            }
+        }
+    }
 
     %orig;
 }
