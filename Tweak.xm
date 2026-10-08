@@ -7,6 +7,7 @@ static void KSLog(NSString *text) {
                                               encoding:NSUTF8StringEncoding
                                                  error:nil];
     if (!old) old = @"";
+
     NSString *out = [old stringByAppendingFormat:@"%@\n", text];
     [out writeToFile:path
           atomically:YES
@@ -14,39 +15,51 @@ static void KSLog(NSString *text) {
                error:nil];
 }
 
+static NSString *KSGestureInfo(id gesture) {
+    if (![gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
+        return [NSString stringWithFormat:@"class=%@",
+                gesture ? NSStringFromClass([gesture class]) : @"(nil)"];
+    }
+
+    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+
+    CGPoint translation = [pan translationInView:pan.view];
+    CGPoint velocity = [pan velocityInView:pan.view];
+
+    return [NSString stringWithFormat:
+            @"class=%@ state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
+            NSStringFromClass([pan class]),
+            (long)pan.state,
+            translation.x,
+            translation.y,
+            velocity.x,
+            velocity.y];
+}
+
 %hook SBCoverSheetSlidingViewController
 
-- (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture {
-    BOOL r = %orig;
-    KSLog([NSString stringWithFormat:@"SHOULD_END=%d", r]);
-    return r;
-}
+- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
+    KSLog([NSString stringWithFormat:
+           @"CHANGED %@", KSGestureInfo(gesture)]);
 
-- (CGFloat)_finalLocationForTransitionToPresented:(id)gesture {
-    CGFloat r = %orig(gesture);
-    KSLog([NSString stringWithFormat:@"FINAL_LOCATION=%f", r]);
-    return r;
-}
-
-- (CGFloat)_velocityForGesture:(id)gesture {
-    CGFloat r = %orig(gesture);
-    KSLog([NSString stringWithFormat:@"VELOCITY=%f", r]);
-    return r;
-}
-
-- (BOOL)_shouldRubberBandForGestureRecognizer:(id)gesture {
-    BOOL r = %orig(gesture);
-    KSLog([NSString stringWithFormat:@"RUBBER_BAND=%d", r]);
-    return r;
-}
-
-- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
-    KSLog(@"ENDED");
     %orig;
 }
 
-- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
-    KSLog(@"CHANGED");
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
+    KSLog([NSString stringWithFormat:
+           @"ENDED %@", KSGestureInfo(gesture)]);
+
+    %orig;
+}
+
+%end
+
+%hook SBCoverSheetPrimarySlidingViewController
+
+- (void)_handleDismissGesture:(id)gesture {
+    KSLog([NSString stringWithFormat:
+           @"DISMISS %@", KSGestureInfo(gesture)]);
+
     %orig;
 }
 
