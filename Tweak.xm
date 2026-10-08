@@ -31,13 +31,14 @@ static void KSLog(NSString *fmt, ...) {
         state == UIGestureRecognizerStateFailed) {
 
         UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)self;
+        UIView *view = [(UIGestureRecognizer *)self view];
 
         KSLog(@"CCUIDismissal state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
               (long)state,
-              [pan translationInView:self.view].x,
-              [pan translationInView:self.view].y,
-              [pan velocityInView:self.view].x,
-              [pan velocityInView:self.view].y);
+              [pan translationInView:view].x,
+              [pan translationInView:view].y,
+              [pan velocityInView:view].x,
+              [pan velocityInView:view].y);
     }
 
     %orig;
