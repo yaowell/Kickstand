@@ -1,5 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
+
+static BOOL KSLogged = NO;
 
 static void KSLog(NSString *fmt, ...) {
     va_list args;
@@ -20,27 +23,56 @@ static void KSLog(NSString *fmt, ...) {
     }
 }
 
+static void KSLogTargets(UIGestureRecognizer *gesture) {
+    if (KSLogged)
+        return;
+
+    UIView *view = [(UIGestureRecognizer *)gesture view];
+    if (!view)
+        return;
+
+    if (![NSStringFromClass([view class]) isEqualToString:@"NCNotificationListView"])
+        return;
+
+    KSLogged = YES;
+
+    KSLog(@"TARGET ACTION class=%@", NSStringFromClass([gesture class]));
+
+    Ivar targetsIvar = class_getInstanceVariable(object_getClass(gesture), "_targets");
+    if (!targetsIvar)
+        targetsIvar = class_getInstanceVariable([gesture class], "_targets");
+
+    if (!targetsIvar) {
+        KSLog(@"_targets IVAR NOT FOUND");
+        return;
+    }
+
+    id targets = object_getIvar(gesture, targetsIvar);
+
+    if (![targets isKindOfClass:[NSArray class]]) {
+        KSLog(@"_targets is not NSArray: %@", NSStringFromClass([targets class]));
+        return;
+    }
+
+    for (id item in (NSArray *)targets) {
+        Ivar targetIvar = class_getInstanceVariable([item class], "_target");
+        Ivar actionIvar = class_getInstanceVariable([item class], "_action");
+
+        id target = targetIvar ? object_getIvar(item, targetIvar) : nil;
+        id action = actionIvar ? object_getIvar(item, actionIvar) : nil;
+
+        KSLog(@"TARGET=%@ ACTION=%@ TARGETCLASS=%@",
+              target,
+              action,
+              target ? NSStringFromClass([target class]) : @"(null)");
+    }
+}
+
 %hook UIPanGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    UIView *view = [(UIGestureRecognizer *)self view];
-
-    if (view &&
-        [NSStringFromClass([view class]) isEqualToString:@"NCNotificationListView"] &&
-        (state == UIGestureRecognizerStateBegan ||
-         state == UIGestureRecognizerStateChanged ||
-         state == UIGestureRecognizerStateEnded ||
-         state == UIGestureRecognizerStateCancelled ||
-         state == UIGestureRecognizerStateFailed)) {
-
-        CGPoint t = [self translationInView:view];
-        CGPoint v = [self velocityInView:view];
-
-        KSLog(@"state=%ld class=%@ translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
-              (long)state,
-              NSStringFromClass([self class]),
-              t.x, t.y,
-              v.x, v.y);
+    if (state == UIGestureRecognizerStateBegan) {
+        KSLogTargets((UIGestureRecognizer *)self);
     }
 
     %orig;
