@@ -1,9 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
-static BOOL KSActive = NO;
-static int KSLastState = -1;
-
 static void KSLog(NSString *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -23,64 +20,27 @@ static void KSLog(NSString *fmt, ...) {
     }
 }
 
-static void KSRecord(NSString *name, UIGestureRecognizer *g, UIGestureRecognizerState state) {
-    if (!g.view || ![NSStringFromClass(g.view.class) isEqualToString:@"NCNotificationListView"])
-        return;
-
-    UIPanGestureRecognizer *pan = nil;
-    if ([g isKindOfClass:[UIPanGestureRecognizer class]])
-        pan = (UIPanGestureRecognizer *)g;
-
-    CGPoint t = CGPointZero;
-    CGPoint v = CGPointZero;
-
-    if (pan) {
-        t = [pan translationInView:g.view];
-        v = [pan velocityInView:g.view];
-    }
-
-    KSLog(@"%@ state=%ld class=%@ translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
-          name,
-          (long)state,
-          NSStringFromClass(g.class),
-          t.x, t.y,
-          v.x, v.y);
-}
-
-%hook UIScrollViewPanGestureRecognizer
-
-- (void)setState:(UIGestureRecognizerState)state {
-    if (self.view &&
-        [NSStringFromClass(self.view.class) isEqualToString:@"NCNotificationListView"]) {
-
-        if (state == UIGestureRecognizerStateBegan ||
-            state == UIGestureRecognizerStateEnded ||
-            state == UIGestureRecognizerStateCancelled ||
-            state == UIGestureRecognizerStateFailed) {
-
-            KSRecord(@"SCROLL", self, state);
-        }
-    }
-
-    %orig;
-}
-
-%end
-
 %hook UIPanGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    if (self.view &&
-        [NSStringFromClass(self.view.class) isEqualToString:@"NCNotificationListView"] &&
-        ![self isKindOfClass:[UIScrollViewPanGestureRecognizer class]]) {
+    UIView *view = [(UIGestureRecognizer *)self view];
 
-        if (state == UIGestureRecognizerStateBegan ||
-            state == UIGestureRecognizerStateEnded ||
-            state == UIGestureRecognizerStateCancelled ||
-            state == UIGestureRecognizerStateFailed) {
+    if (view &&
+        [NSStringFromClass([view class]) isEqualToString:@"NCNotificationListView"] &&
+        (state == UIGestureRecognizerStateBegan ||
+         state == UIGestureRecognizerStateChanged ||
+         state == UIGestureRecognizerStateEnded ||
+         state == UIGestureRecognizerStateCancelled ||
+         state == UIGestureRecognizerStateFailed)) {
 
-            KSRecord(@"PAN", self, state);
-        }
+        CGPoint t = [self translationInView:view];
+        CGPoint v = [self velocityInView:view];
+
+        KSLog(@"state=%ld class=%@ translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
+              (long)state,
+              NSStringFromClass([self class]),
+              t.x, t.y,
+              v.x, v.y);
     }
 
     %orig;
