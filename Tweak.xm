@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 
 static void KSLog(NSString *fmt, ...) {
     va_list args;
@@ -20,48 +21,25 @@ static void KSLog(NSString *fmt, ...) {
     }
 }
 
-%hook SBCoverSheetPrimarySlidingViewController
+%hook CCUIDismissalGestureRecognizer
 
-- (void)grabberTongueWillPresent:(id)gesture {
-    KSLog(@"WILL_PRESENT gesture=%@", NSStringFromClass([gesture class]));
-    %orig;
-}
+- (void)setState:(UIGestureRecognizerState)state {
+    if (state == UIGestureRecognizerStateBegan ||
+        state == UIGestureRecognizerStateChanged ||
+        state == UIGestureRecognizerStateEnded ||
+        state == UIGestureRecognizerStateCancelled ||
+        state == UIGestureRecognizerStateFailed) {
 
-- (void)grabberTongueUpdatedPulling:(id)tongue
-                       withDistance:(double)distance
-                        andVelocity:(double)velocity
-                         andGesture:(id)gesture {
-    KSLog(@"UPDATED distance=%.1f velocity=%.1f gesture=%@",
-          distance,
-          velocity,
-          NSStringFromClass([gesture class]));
-    %orig;
-}
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)self;
 
-- (void)grabberTongueEndedPulling:(id)tongue
-                     withDistance:(double)distance
-                      andVelocity:(double)velocity
-                       andGesture:(id)gesture {
-    KSLog(@"ENDED distance=%.1f velocity=%.1f gesture=%@",
-          distance,
-          velocity,
-          NSStringFromClass([gesture class]));
-    %orig;
-}
+        KSLog(@"CCUIDismissal state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
+              (long)state,
+              [pan translationInView:self.view].x,
+              [pan translationInView:self.view].y,
+              [pan velocityInView:self.view].x,
+              [pan velocityInView:self.view].y);
+    }
 
-- (void)grabberTongueDidDismiss {
-    KSLog(@"DID_DISMISS");
-    %orig;
-}
-
-- (void)grabberTongueCanceledPulling:(id)tongue
-                        withDistance:(double)distance
-                         andVelocity:(double)velocity
-                          andGesture:(id)gesture {
-    KSLog(@"CANCELED distance=%.1f velocity=%.1f gesture=%@",
-          distance,
-          velocity,
-          NSStringFromClass([gesture class]));
     %orig;
 }
 
