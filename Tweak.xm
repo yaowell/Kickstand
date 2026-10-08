@@ -1,4 +1,6 @@
+#import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 
 static void KSLog(NSString *s) {
     NSString *p = @"/var/mobile/Documents/Kickstand.log";
@@ -13,35 +15,70 @@ static void KSLog(NSString *s) {
         error:nil];
 }
 
+static BOOL KSDismissGesture(id gesture) {
+    Class cls = NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer");
+    return cls && [gesture isKindOfClass:cls];
+}
+
+%hook SBCoverSheetPrimarySlidingViewController
+
+- (void)_handleDismissGesture:(id)gesture {
+
+    if (KSDismissGesture(gesture)) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+
+        if (pan.state == UIGestureRecognizerStateEnded) {
+            CGPoint t = [pan translationInView:pan.view];
+            CGPoint v = [pan velocityInView:pan.view];
+
+            KSLog(@"========================================");
+            KSLog(@"KICKSTAND DISMISS END TRACE");
+            KSLog([NSString stringWithFormat:
+                   @"translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
+                   t.x, t.y, v.x, v.y]);
+
+            KSLog(@"Calling original _handleDismissGesture...");
+        }
+    }
+
+    %orig;
+
+    if (KSDismissGesture(gesture)) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+
+        if (pan.state == UIGestureRecognizerStateEnded) {
+            KSLog(@"Original _handleDismissGesture returned");
+            KSLog(@"========================================");
+        }
+    }
+}
+
+%end
+
 %hook SBCoverSheetSlidingViewController
 
+- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
+    if (KSDismissGesture(gesture)) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+
+        if (pan.state == UIGestureRecognizerStateEnded) {
+            KSLog(@"DISMISS_CHANGED ENDED");
+        }
+    }
+
+    %orig;
+}
+
 - (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
-    KSLog(@"CALL END BEGIN");
+    if (KSDismissGesture(gesture)) {
+        KSLog(@"PRESENT_DISMISS_ENDED BEGIN");
+    }
 
     %orig;
 
-    KSLog(@"CALL END AFTER");
-}
-
-- (void)_cancelTransitionForGesture:(id)gesture {
-    KSLog(@"CALL CANCEL");
-
-    %orig;
-}
-
-- (void)_commitTransitionToAppeared:(BOOL)animated {
-    KSLog([NSString stringWithFormat:
-           @"CALL COMMIT_APPEARED animated=%d", animated]);
-
-    %orig;
-}
-
-- (void)_finishTransitionToPresented:(BOOL)animated
-                    withCompletion:(id)completion {
-    KSLog([NSString stringWithFormat:
-           @"CALL FINISH_PRESENTED animated=%d", animated]);
-
-    %orig;
+    if (KSDismissGesture(gesture)) {
+        KSLog(@"PRESENT_DISMISS_ENDED AFTER");
+    }
 }
 
 %end
