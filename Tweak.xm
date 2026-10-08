@@ -1,32 +1,38 @@
 #import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
 #import <objc/runtime.h>
+
+static NSMutableString *gLog;
+static NSMutableSet *gSeen;
 
 static NSString *KSPath(void) {
     return @"/var/mobile/Documents/Kickstand.log";
 }
 
 static void KSLog(NSString *format, ...) {
+    if (!gLog) {
+        gLog = [NSMutableString string];
+    }
+
     va_list args;
     va_start(args, format);
     NSString *s = [[NSString alloc] initWithFormat:format arguments:args];
     va_end(args);
 
-    NSString *old = [NSString stringWithContentsOfFile:KSPath()
-                                               encoding:NSUTF8StringEncoding
-                                                  error:nil];
+    [gLog appendFormat:@"%@\n", s];
 
-    if (!old) old = @"";
-
-    NSString *out = [old stringByAppendingFormat:@"%@\n", s];
-
-    if (out.length > 500000) {
-        out = [out substringFromIndex:out.length - 400000];
+    if (gLog.length > 200000) {
+        [gLog deleteCharactersInRange:NSMakeRange(0, gLog.length - 150000)];
     }
+}
 
-    [out writeToFile:KSPath()
-          atomically:YES
-            encoding:NSUTF8StringEncoding
-               error:nil];
+static void KSSaveLog(void) {
+    if (!gLog || gLog.length == 0) return;
+
+    [gLog writeToFile:KSPath()
+           atomically:YES
+             encoding:NSUTF8StringEncoding
+                error:nil];
 }
 
 static NSString *KSClass(id obj) {
@@ -37,20 +43,20 @@ static NSString *KSClass(id obj) {
 static BOOL KSInterestingClass(Class cls) {
     if (!cls) return NO;
 
-    NSString *n = NSStringFromClass(cls);
+    NSString *name = NSStringFromClass(cls);
 
     NSArray *keys = @[
         @"Notification",
         @"CoverSheet",
         @"SBCover",
-        @"SB",
         @"NC",
         @"Lock",
         @"Bulletin"
     ];
 
     for (NSString *key in keys) {
-        if ([n rangeOfString:key options:NSCaseInsensitiveSearch].location != NSNotFound) {
+        if ([name rangeOfString:key
+                        options:NSCaseInsensitiveSearch].location != NSNotFound) {
             return YES;
         }
     }
@@ -58,27 +64,54 @@ static BOOL KSInterestingClass(Class cls) {
     return NO;
 }
 
-static void KSLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
-    if (!KSInterestingClass([gr class])) return;
+static void KSDescribeGesture(UIGestureRecognizer *gr,
+                              NSString *event) {
+    if (!gr) return;
+
+    Class cls = [gr class];
+
+    if (!KSInterestingClass(cls)) return;
+
+    NSString *className = NSStringFromClass(cls);
+
+    if (!gSeen) {
+        gSeen = [NSMutableSet set];
+    }
+
+    NSString *key = [NSString stringWithFormat:@"%@:%@",
+                     className,
+                     event];
+
+    if ([gSeen containsObject:key]) {
+        return;
+    }
+
+    [gSeen addObject:key];
 
     UIView *view = gr.view;
 
-    KSLog(@"[GR] %@ | class=%@ state=%ld view=%@",
-          reason,
-          KSClass(gr),
-          (long)gr.state,
-          KSClass(view));
+    KSLog(@"");
+    KSLog(@"[GESTURE]");
+    KSLog(@"event=%@", event);
+    KSLog(@"class=%@", className);
+    KSLog(@"state=%ld", (long)gr.state);
+    KSLog(@"view=%@", KSClass(view));
 
-    UIView *v = view;
+    if (view) {
+        KSLog(@"viewFrame=%@", NSStringFromCGRect(view.frame));
+    }
+
+    UIView *superview = view.superview;
+
     int level = 0;
 
-    while (v && level < 8) {
-        KSLog(@"    view[%d] = %@ frame=%@",
+    while (superview && level < 5) {
+        KSLog(@"super[%d]=%@ frame=%@",
               level,
-              KSClass(v),
-              NSStringFromCGRect(v.frame));
+              KSClass(superview),
+              NSStringFromCGRect(superview.frame));
 
-        v = v.superview;
+        superview = superview.superview;
         level++;
     }
 }
@@ -86,72 +119,47 @@ static void KSLogRecognizer(UIGestureRecognizer *gr, NSString *reason) {
 %hook UIGestureRecognizer
 
 - (void)setState:(UIGestureRecognizerState)state {
-    BOOL interesting = KSInterestingClass([self class]);
+    if (KSInterestingClass([self class])) {
+        UIGestureRecognizerState oldState = self.state;
 
-    if (interesting) {
-        KSLogRecognizer(self,
-                        [NSString stringWithFormat:@"BEFORE state=%ld -> %ld",
-                         (long)self.state,
-                         (long)state]);
-    }
+        if (oldState != state) {
+            NSString *event = nil;
 
-    %orig;
+            switch (state) {
+                case UIGestureRecognizerStatePossible:
+                    event = @"POSSIBLE";
+                    break;
 
-    if (interesting) {
-        KSLogRecognizer(self,
-                        [NSString stringWithFormat:@"AFTER state=%ld",
-                         (long)self.state]);
-    }
-}
+                case UIGestureRecognizerStateBegan:
+                    event = @"BEGAN";
+                    break;
 
-%end
+                case UIGestureRecognizerStateChanged:
+                    event = @"CHANGED";
+                    break;
 
-static BOOL gTouchActive = NO;
+                case UIGestureRecognizerStateEnded:
+                    event = @"ENDED";
+                    break;
 
-%hook UIApplication
+                case UIGestureRecognizerStateCancelled:
+                    event = @"CANCELLED";
+                    break;
 
-- (void)sendEvent:(UIEvent *)event {
-    NSSet *touches = event.allTouches;
-
-    for (UITouch *touch in touches) {
-        if (touch.phase == UITouchPhaseBegan) {
-            gTouchActive = YES;
-
-            UIWindow *window = touch.window;
-
-            KSLog(@"");
-            KSLog(@"========== TOUCH BEGAN ==========");
-            KSLog(@"window=%@ key=%d hidden=%d",
-                  KSClass(window),
-                  window.isKeyWindow,
-                  window.hidden);
-
-            UIView *v = touch.view;
-            int level = 0;
-
-            while (v && level < 10) {
-                KSLog(@"view[%d]=%@ frame=%@",
-                      level,
-                      KSClass(v),
-                      NSStringFromCGRect(v.frame));
-
-                for (UIGestureRecognizer *gr in v.gestureRecognizers) {
-                    KSLogRecognizer(gr, @"ATTACHED");
-                }
-
-                v = v.superview;
-                level++;
+                case UIGestureRecognizerStateFailed:
+                    event = @"FAILED";
+                    break;
             }
-        }
 
-        if (gTouchActive &&
-            (touch.phase == UITouchPhaseEnded ||
-             touch.phase == UITouchPhaseCancelled)) {
+            if (event) {
+                KSDescribeGesture(self, event);
 
-            KSLog(@"========== TOUCH %@ ==========",
-                  touch.phase == UITouchPhaseEnded ? @"ENDED" : @"CANCELLED");
-
-            gTouchActive = NO;
+                if (state == UIGestureRecognizerStateEnded ||
+                    state == UIGestureRecognizerStateCancelled ||
+                    state == UIGestureRecognizerStateFailed) {
+                    KSSaveLog();
+                }
+            }
         }
     }
 
@@ -161,8 +169,13 @@ static BOOL gTouchActive = NO;
 %end
 
 %ctor {
+    gLog = [NSMutableString string];
+    gSeen = [NSMutableSet set];
+
     KSLog(@"");
     KSLog(@"========================================");
-    KSLog(@"Kickstand PROBE LOADED");
+    KSLog(@"Kickstand LIGHT PROBE LOADED");
     KSLog(@"========================================");
+
+    KSSaveLog();
 }
