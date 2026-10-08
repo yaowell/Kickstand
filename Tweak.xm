@@ -3,91 +3,80 @@
 
 static void KSLog(NSString *s) {
     NSString *p = @"/var/mobile/Documents/Kickstand.log";
-    NSFileHandle *f = [NSFileHandle fileHandleForWritingAtPath:p];
-
-    if (!f) {
-        [s writeToFile:p atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        return;
-    }
-
-    [f seekToEndOfFile];
-    NSString *line = [s stringByAppendingString:@"\n"];
-    [f writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
-    [f closeFile];
+    NSString *old = [NSString stringWithContentsOfFile:p
+                                              encoding:NSUTF8StringEncoding
+                                                 error:nil];
+    if (!old) old = @"";
+    [[old stringByAppendingFormat:@"%@\n", s]
+        writeToFile:p
+        atomically:YES
+        encoding:NSUTF8StringEncoding
+        error:nil];
 }
 
-static BOOL KSIsCSScrollView(UIScrollView *view) {
-    Class cls = NSClassFromString(@"CSScrollView");
-    return cls && view && [view isKindOfClass:cls];
+static BOOL KSIsTarget(id gesture) {
+    NSString *name = gesture ? NSStringFromClass([gesture class]) : @"";
+    return [name isEqualToString:@"CSScrollViewPanGestureRecognizer"] ||
+           [name isEqualToString:@"UIScrollViewPanGestureRecognizer"] ||
+           [name isEqualToString:@"SBCoverSheetScreenEdgePanGestureRecognizer"];
 }
 
-static void KSLogPan(id gesture, NSString *tag) {
-    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
-    UIView *view = pan.view;
+%hook UIGestureRecognizer
 
-    CGPoint t = [pan translationInView:view];
-    CGPoint v = [pan velocityInView:view];
-
-    KSLog([NSString stringWithFormat:
-           @"%@ state=%ld translation=(%.1f,%.1f) velocity=(%.1f,%.1f)",
-           tag,
-           (long)pan.state,
-           t.x,
-           t.y,
-           v.x,
-           v.y]);
-}
-
-%hook UIScrollViewPanGestureRecognizer
-
-- (void)setState:(UIGestureRecognizerState)state {
-    UIScrollView *view = (UIScrollView *)((UIPanGestureRecognizer *)self).view;
-
-    if (KSIsCSScrollView(view)) {
-        if (state == UIGestureRecognizerStateBegan ||
-            state == UIGestureRecognizerStateEnded ||
-            state == UIGestureRecognizerStateCancelled ||
-            state == UIGestureRecognizerStateFailed) {
-
-            KSLogPan(self, @"CSScrollView PAN");
-        }
+- (void)requireGestureRecognizerToFail:(UIGestureRecognizer *)other {
+    if (KSIsTarget(self) || KSIsTarget(other)) {
+        KSLog([NSString stringWithFormat:
+               @"REQUIRE %@ -> %@",
+               NSStringFromClass([self class]),
+               NSStringFromClass([other class])]);
     }
 
     %orig;
 }
 
-%end
+- (BOOL)canPreventGestureRecognizer:(UIGestureRecognizer *)other {
+    BOOL r = %orig;
 
-%hook SBCoverSheetScreenEdgePanGestureRecognizer
-
-- (void)setState:(UIGestureRecognizerState)state {
-    if (state == UIGestureRecognizerStateBegan ||
-        state == UIGestureRecognizerStateEnded ||
-        state == UIGestureRecognizerStateCancelled ||
-        state == UIGestureRecognizerStateFailed) {
-
-        KSLogPan(self, @"COVER SHEET PAN");
+    if (KSIsTarget(self) || KSIsTarget(other)) {
+        KSLog([NSString stringWithFormat:
+               @"CANPREVENT %@ -> %@ = %d",
+               NSStringFromClass([self class]),
+               NSStringFromClass([other class]),
+               r]);
     }
 
-    %orig;
+    return r;
+}
+
+- (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)other {
+    BOOL r = %orig;
+
+    if (KSIsTarget(self) || KSIsTarget(other)) {
+        KSLog([NSString stringWithFormat:
+               @"CANBEPREVENT %@ <- %@ = %d",
+               NSStringFromClass([self class]),
+               NSStringFromClass([other class]),
+               r]);
+    }
+
+    return r;
 }
 
 %end
 
-%hook CSScrollView
+%hook UIScrollView
 
 - (void)setContentOffset:(CGPoint)offset {
-    static CGPoint lastOffset = { -99999, -99999 };
+    Class cls = NSClassFromString(@"CSScrollView");
 
-    if (fabs(offset.y - lastOffset.y) > 20.0 ||
-        fabs(offset.x - lastOffset.x) > 20.0) {
+    if (cls && [self isKindOfClass:cls]) {
+        static CGFloat lastY = -99999;
 
-        KSLog([NSString stringWithFormat:
-               @"CSScrollView OFFSET=(%.1f,%.1f)",
-               offset.x,
-               offset.y]);
-
-        lastOffset = offset;
+        if (fabs(offset.y - lastY) > 10.0) {
+            KSLog([NSString stringWithFormat:
+                   @"CS OFFSET y=%.1f", offset.y]);
+            lastY = offset.y;
+        }
     }
 
     %orig;
