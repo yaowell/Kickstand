@@ -16,75 +16,32 @@ static void KSLog(NSString *text) {
                error:nil];
 }
 
-static void KSDumpMethodTypes(Class cls, NSString *className) {
-    NSArray *names = @[
-        @"_presentOrDismissGestureEndedWithGestureRecognizer:",
-        @"_dismissGestureChangedWithGestureRecognizer:",
-        @"_cancelTransitionForGesture:",
-        @"_commitTransitionToAppeared:animated:",
-        @"_endTransitionToAppeared",
-        @"_finishTransitionToPresented:animated:withCompletion:",
-        @"_shouldEndPresentedForEndingGestureRecognizer:",
-        @"_finalLocationForTransitionToPresented:",
-        @"_velocityForGesture:",
-        @"_shouldRubberBandForGestureRecognizer:",
-        @"_transitionToViewControllerAppearState:ifNeeded:forUserGesture:",
-        @"_transitionToViewControllerAppearState:forUserGesture:",
-        @"_animationTickedWithProgress:velocity:forPresentationValue:",
-        @"_positionSubviewsForContentFrame:forPresentationValue:",
-        @"_updatePositionViewForProgress:forPresentationValue:",
-        @"_averageVelocityForGesture:"
-    ];
-
-    for (NSString *name in names) {
-        SEL sel = NSSelectorFromString(name);
-        Method method = class_getInstanceMethod(cls, sel);
-
-        if (method) {
-            const char *types = method_getTypeEncoding(method);
-            KSLog([NSString stringWithFormat:
-                   @"METHOD %@ [%@] type=%s",
-                   name,
-                   className,
-                   types]);
-        } else {
-            KSLog([NSString stringWithFormat:
-                   @"METHOD %@ [%@] NOT FOUND",
-                   name,
-                   className]);
-        }
-    }
+static BOOL KSIsDismissGesture(id gesture) {
+    Class cls = NSClassFromString(@"SBCoverSheetScreenEdgePanGestureRecognizer");
+    return gesture &&
+           [gesture isKindOfClass:[UIPanGestureRecognizer class]] &&
+           cls &&
+           [gesture isKindOfClass:cls];
 }
 
-static BOOL gDumped = NO;
+%hook SBCoverSheetSlidingViewController
 
-%hook SBCoverSheetPrimarySlidingViewController
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
+    if (KSIsDismissGesture(gesture)) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
+        CGPoint velocity = [pan velocityInView:pan.view];
 
-- (void)_handleDismissGesture:(id)gesture {
-    if (!gDumped) {
-        gDumped = YES;
+        KSLog([NSString stringWithFormat:
+               @"KICKSTAND END velocity=(%.1f,%.1f)",
+               velocity.x,
+               velocity.y]);
 
-        KSLog(@"========================================");
-        KSLog(@"KICKSTAND METHOD TYPE PROBE");
-        KSLog(@"========================================");
+        if (velocity.y < 0) {
+            KSLog(@"KICKSTAND CANCEL DISMISS");
 
-        Class cls = object_getClass(self);
-        Class current = cls;
-
-        while (current) {
-            NSString *name = NSStringFromClass(current);
-
-            if ([name containsString:@"SBCoverSheet"]) {
-                KSLog([NSString stringWithFormat:
-                       @"CLASS %@", name]);
-
-                KSDumpMethodTypes(current, name);
-            }
-
-            current = class_getSuperclass(current);
+            [self _cancelTransitionForGesture:gesture];
+            return;
         }
-
-        KSLog(@"========================================");
     }
 
     %orig;
