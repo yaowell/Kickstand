@@ -67,9 +67,9 @@ static void LSRApplyHistoryHeaderReveal(NCNotificationListView *list) {
 
 %end
 
-// 历史分组标题透明度同步
+// 历史分组标题透明度同步（已修正为正确的 void 返回类型）
 %hook NCNotificationListSectionHeaderView
-- (setAlpha)(CGFloat)alpha {
+- (void)setAlpha:(CGFloat)alpha {
     %orig(MIN(alpha, LSRHistoryHeaderMaxAlpha(self)));
 }
 %end
