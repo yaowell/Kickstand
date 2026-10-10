@@ -1,3 +1,4 @@
+#import <Foundation/Foundation.h>
 %hook SBCoverSheetSlidingViewController
 
 - (void)_transitionToViewControllerAppearState:(int)arg1 ifNeeded:(BOOL)arg2 forUserGesture:(BOOL)arg3 {
