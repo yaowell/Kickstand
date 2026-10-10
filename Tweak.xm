@@ -16,37 +16,41 @@ static void KSLog(NSString *message) {
     }
 }
 
-%hook SBCoverSheetSlidingViewController
+%hook SBCoverSheetPrimarySlidingViewController
 
-- (void)_transitionToViewControllerAppearState:(int)arg1 ifNeeded:(BOOL)arg2 forUserGesture:(BOOL)arg3 {
-    KSLog([NSString stringWithFormat:@"transition state=%d ifNeeded=%d userGesture=%d", arg1, arg2, arg3]);
+- (void)_beginTransitionFromAppeared:(BOOL)arg1 {
+    KSLog([NSString stringWithFormat:@"BEGIN transition appeared=%d", arg1]);
+    %orig;
+}
+
+- (void)_endTransitionToAppeared:(BOOL)arg1 {
+    KSLog([NSString stringWithFormat:@"END transition appeared=%d", arg1]);
     %orig;
 }
 
 - (void)_commitTransitionToAppeared:(BOOL)arg1 animated:(BOOL)arg2 {
-    KSLog([NSString stringWithFormat:@"commit appeared=%d animated=%d", arg1, arg2]);
+    KSLog([NSString stringWithFormat:@"COMMIT appeared=%d animated=%d", arg1, arg2]);
     %orig;
 }
 
-- (void)_finishTransitionToPresented:(BOOL)arg1 animated:(BOOL)arg2 withCompletion:(id)arg3 {
-    KSLog([NSString stringWithFormat:@"finish presented=%d animated=%d", arg1, arg2]);
-    if (!arg1) {
-        KSLog(@"BLOCK finish presented=0");
-        return;
-    }
+- (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
+    KSLog([NSString stringWithFormat:@"GRABBER began distance=%.1f velocity=%.1f gesture=%@", arg2, arg3, arg4]);
     %orig;
 }
 
-- (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(UIGestureRecognizer *)gesture {
-    BOOL result = %orig;
-    KSLog([NSString stringWithFormat:@"shouldEnd class=%@ state=%ld result=%d", NSStringFromClass([gesture class]), (long)gesture.state, result]);
-    return result;
+- (void)grabberTongueUpdatedPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
+    KSLog([NSString stringWithFormat:@"GRABBER updated distance=%.1f velocity=%.1f", arg2, arg3]);
+    %orig;
 }
 
-- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(UIGestureRecognizer *)gesture {
-    KSLog([NSString stringWithFormat:@"gestureEnded BEGIN class=%@ state=%ld", NSStringFromClass([gesture class]), (long)gesture.state]);
+- (void)grabberTongueEndedPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
+    KSLog([NSString stringWithFormat:@"GRABBER ended distance=%.1f velocity=%.1f gesture=%@", arg2, arg3, arg4]);
     %orig;
-    KSLog(@"gestureEnded END");
+}
+
+- (void)grabberTongueCanceledPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
+    KSLog([NSString stringWithFormat:@"GRABBER canceled distance=%.1f velocity=%.1f", arg2, arg3]);
+    %orig;
 }
 
 %end
