@@ -1,5 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <execinfo.h>
+#import <stdlib.h>
 
 @interface SBCoverSheetSlidingViewController : NSObject
 - (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture;
@@ -49,18 +51,32 @@ static void KSLog(NSString *s) {
     %orig;
 }
 
+- (void)_finishTransitionToPresented:(BOOL)presented animated:(BOOL)animated withCompletion:(id)completion {
+    KSLog([NSString stringWithFormat:
+        @"FINISH presented=%d animated=%d", presented, animated]);
+
+    if (!presented) {
+        void *frames[24];
+        int count = backtrace(frames, 24);
+        char **symbols = backtrace_symbols(frames, count);
+
+        if (symbols) {
+            for (int i = 0; i < count; i++) {
+                KSLog([NSString stringWithFormat:@"STACK %s", symbols[i]]);
+            }
+            free(symbols);
+        }
+    }
+
+    %orig;
+}
+
 - (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated {
     KSLog([NSString stringWithFormat:
         @"COMMIT_ENTER appeared=%d animated=%d", appeared, animated]);
     %orig;
     KSLog([NSString stringWithFormat:
         @"COMMIT_EXIT appeared=%d animated=%d", appeared, animated]);
-}
-
-- (void)_finishTransitionToPresented:(BOOL)presented animated:(BOOL)animated withCompletion:(id)completion {
-    KSLog([NSString stringWithFormat:
-        @"FINISH presented=%d animated=%d", presented, animated]);
-    %orig;
 }
 
 %end
