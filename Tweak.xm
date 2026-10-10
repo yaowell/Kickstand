@@ -23,6 +23,10 @@ static void KSLog(NSString *message) {
 }
 
 - (void)_commitTransitionToAppeared:(BOOL)arg1 animated:(BOOL)arg2 {
+    if (!arg1) {
+        KSLog(@"BLOCK commit appeared=0");
+        return;
+    }
     KSLog([NSString stringWithFormat:@"commit appeared=%d animated=%d", arg1, arg2]);
     %orig;
 }
