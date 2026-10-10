@@ -5,12 +5,14 @@
 - (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture;
 - (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture;
 - (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated;
+- (void)_finishTransitionToPresented:(BOOL)presented animated:(BOOL)animated withCompletion:(id)completion;
 @end
 
 static void KSLog(NSString *s) {
     NSString *p = @"/var/mobile/Documents/Kickstand.log";
     NSString *line = [NSString stringWithFormat:@"%@ %@\n", [NSDate date], s];
     NSFileHandle *f = [NSFileHandle fileHandleForWritingAtPath:p];
+
     if (!f) {
         [line writeToFile:p atomically:YES encoding:NSUTF8StringEncoding error:nil];
     } else {
@@ -29,9 +31,13 @@ static void KSLog(NSString *s) {
     if ([gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
         UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
         CGPoint v = [pan velocityInView:pan.view];
-        KSLog([NSString stringWithFormat:@"SHOULD_END class=%@ state=%ld velocity=(%.1f, %.1f) orig=%d", cls, (long)pan.state, v.x, v.y, result]);
+
+        KSLog([NSString stringWithFormat:
+            @"SHOULD_END class=%@ state=%ld velocity=(%.1f, %.1f) orig=%d",
+            cls, (long)pan.state, v.x, v.y, result]);
     } else {
-        KSLog([NSString stringWithFormat:@"SHOULD_END class=%@ orig=%d", cls, result]);
+        KSLog([NSString stringWithFormat:
+            @"SHOULD_END class=%@ orig=%d", cls, result]);
     }
 
     return result;
@@ -44,7 +50,16 @@ static void KSLog(NSString *s) {
 }
 
 - (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated {
-    KSLog([NSString stringWithFormat:@"COMMIT appeared=%d animated=%d", appeared, animated]);
+    KSLog([NSString stringWithFormat:
+        @"COMMIT_ENTER appeared=%d animated=%d", appeared, animated]);
+    %orig;
+    KSLog([NSString stringWithFormat:
+        @"COMMIT_EXIT appeared=%d animated=%d", appeared, animated]);
+}
+
+- (void)_finishTransitionToPresented:(BOOL)presented animated:(BOOL)animated withCompletion:(id)completion {
+    KSLog([NSString stringWithFormat:
+        @"FINISH presented=%d animated=%d", presented, animated]);
     %orig;
 }
 
