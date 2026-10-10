@@ -1,5 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <execinfo.h>
+#import <stdlib.h>
 
 static void KSLog(NSString *message) {
     NSString *path = @"/var/mobile/Documents/Kickstand.log";
@@ -30,6 +32,23 @@ static void KSLog(NSString *message) {
 
 - (void)_commitTransitionToAppeared:(BOOL)arg1 animated:(BOOL)arg2 {
     KSLog([NSString stringWithFormat:@"COMMIT appeared=%d animated=%d", arg1, arg2]);
+
+    if (!arg1) {
+        void *frames[32];
+        int count = backtrace(frames, 32);
+        char **symbols = backtrace_symbols(frames, count);
+
+        KSLog(@"===== HIDE CALL STACK BEGIN =====");
+        for (int i = 0; symbols && i < count; i++) {
+            KSLog([NSString stringWithUTF8String:symbols[i]]);
+        }
+        KSLog(@"===== HIDE CALL STACK END =====");
+
+        if (symbols) {
+            free(symbols);
+        }
+    }
+
     %orig;
 }
 
