@@ -30,6 +30,9 @@ static void KSLog(NSString *message) {
 
 - (void)_finishTransitionToPresented:(BOOL)arg1 animated:(BOOL)arg2 withCompletion:(id)arg3 {
     KSLog([NSString stringWithFormat:@"finish presented=%d animated=%d", arg1, arg2]);
+    if (!arg1) {
+        KSLog([NSString stringWithFormat:@"DISMISS CALL STACK:\n%@", [[NSThread callStackSymbols] componentsJoinedByString:@"\n"]]);
+    }
     %orig;
 }
 
