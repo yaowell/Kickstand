@@ -60,17 +60,27 @@ static void LSRApplyHistoryHeaderReveal(NCNotificationListView *list) {
 
 // 3. iOS 15 状态机切换（唤出与收起）
 - (void)setRevealed:(BOOL)revealed {
-    // 咱们后续要做的“松手不自动收回”拦截，就可以在这里精准切入
     %orig;
     LSRApplyHistoryHeaderReveal(self);
 }
 
 %end
 
-// 历史分组标题透明度同步（已修正为正确的 void 返回类型）
+// 历史分组标题透明度同步
 %hook NCNotificationListSectionHeaderView
 - (void)setAlpha:(CGFloat)alpha {
     %orig(MIN(alpha, LSRHistoryHeaderMaxAlpha(self)));
+}
+%end
+
+// 【关键补回】强制使用标准列表展示样式，防止新通知走入 iOS 16 默认的聚合/收回通道
+%hook NCNotificationMasterList
+- (void)setCurrentListDisplayStyleSetting:(NSUInteger)setting {
+    %orig(0);
+}
+
+- (NSUInteger)currentListDisplayStyleSetting {
+    return 0;
 }
 %end
 
