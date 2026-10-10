@@ -6,6 +6,9 @@
 @interface SBCoverSheetSlidingViewController : NSObject
 - (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture;
 - (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture;
+- (void)_presentOrDismissGestureChangedWithGestureRecognizer:(id)gesture;
+- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture;
+- (void)_cancelTransitionForGesture:(id)gesture;
 - (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated;
 - (void)_finishTransitionToPresented:(BOOL)presented animated:(BOOL)animated withCompletion:(id)completion;
 @end
@@ -33,13 +36,11 @@ static void KSLog(NSString *s) {
     if ([gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
         UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
         CGPoint v = [pan velocityInView:pan.view];
-
         KSLog([NSString stringWithFormat:
-            @"SHOULD_END class=%@ state=%ld velocity=(%.1f, %.1f) orig=%d",
+            @"SHOULD_END class=%@ state=%ld velocity=(%.1f,%.1f) orig=%d",
             cls, (long)pan.state, v.x, v.y, result]);
     } else {
-        KSLog([NSString stringWithFormat:
-            @"SHOULD_END class=%@ orig=%d", cls, result]);
+        KSLog([NSString stringWithFormat:@"SHOULD_END class=%@ orig=%d", cls, result]);
     }
 
     return result;
@@ -51,9 +52,26 @@ static void KSLog(NSString *s) {
     %orig;
 }
 
+- (void)_presentOrDismissGestureChangedWithGestureRecognizer:(id)gesture {
+    NSString *cls = gesture ? NSStringFromClass([gesture class]) : @"nil";
+    KSLog([NSString stringWithFormat:@"PRESENT_DISMISS_CHANGED class=%@", cls]);
+    %orig;
+}
+
+- (void)_dismissGestureChangedWithGestureRecognizer:(id)gesture {
+    NSString *cls = gesture ? NSStringFromClass([gesture class]) : @"nil";
+    KSLog([NSString stringWithFormat:@"DISMISS_CHANGED class=%@", cls]);
+    %orig;
+}
+
+- (void)_cancelTransitionForGesture:(id)gesture {
+    NSString *cls = gesture ? NSStringFromClass([gesture class]) : @"nil";
+    KSLog([NSString stringWithFormat:@"CANCEL_TRANSITION class=%@", cls]);
+    %orig;
+}
+
 - (void)_finishTransitionToPresented:(BOOL)presented animated:(BOOL)animated withCompletion:(id)completion {
-    KSLog([NSString stringWithFormat:
-        @"FINISH presented=%d animated=%d", presented, animated]);
+    KSLog([NSString stringWithFormat:@"FINISH presented=%d animated=%d", presented, animated]);
 
     if (!presented) {
         void *frames[24];
@@ -72,11 +90,9 @@ static void KSLog(NSString *s) {
 }
 
 - (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated {
-    KSLog([NSString stringWithFormat:
-        @"COMMIT_ENTER appeared=%d animated=%d", appeared, animated]);
+    KSLog([NSString stringWithFormat:@"COMMIT_ENTER appeared=%d animated=%d", appeared, animated]);
     %orig;
-    KSLog([NSString stringWithFormat:
-        @"COMMIT_EXIT appeared=%d animated=%d", appeared, animated]);
+    KSLog([NSString stringWithFormat:@"COMMIT_EXIT appeared=%d animated=%d", appeared, animated]);
 }
 
 %end
