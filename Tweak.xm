@@ -3,16 +3,16 @@
 
 @interface SBCoverSheetSlidingViewController : NSObject
 - (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture;
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture;
+- (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated;
 @end
 
 static void KSLog(NSString *s) {
     NSString *p = @"/var/mobile/Documents/Kickstand.log";
-    NSString *line = [NSString stringWithFormat:@"%@ %@\n",
-        [NSDate date], s];
+    NSString *line = [NSString stringWithFormat:@"%@ %@\n", [NSDate date], s];
     NSFileHandle *f = [NSFileHandle fileHandleForWritingAtPath:p];
     if (!f) {
-        [line writeToFile:p atomically:YES
-                 encoding:NSUTF8StringEncoding error:nil];
+        [line writeToFile:p atomically:YES encoding:NSUTF8StringEncoding error:nil];
     } else {
         [f seekToEndOfFile];
         [f writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
@@ -25,17 +25,27 @@ static void KSLog(NSString *s) {
 - (BOOL)_shouldEndPresentedForEndingGestureRecognizer:(id)gesture {
     BOOL result = %orig;
     NSString *cls = gesture ? NSStringFromClass([gesture class]) : @"nil";
+
     if ([gesture isKindOfClass:[UIPanGestureRecognizer class]]) {
         UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gesture;
         CGPoint v = [pan velocityInView:pan.view];
-        KSLog([NSString stringWithFormat:
-            @"shouldEnd class=%@ state=%ld velocity=(%.1f, %.1f) orig=%d",
-            cls, (long)pan.state, v.x, v.y, result]);
+        KSLog([NSString stringWithFormat:@"SHOULD_END class=%@ state=%ld velocity=(%.1f, %.1f) orig=%d", cls, (long)pan.state, v.x, v.y, result]);
     } else {
-        KSLog([NSString stringWithFormat:
-            @"shouldEnd class=%@ orig=%d", cls, result]);
+        KSLog([NSString stringWithFormat:@"SHOULD_END class=%@ orig=%d", cls, result]);
     }
+
     return result;
+}
+
+- (void)_presentOrDismissGestureEndedWithGestureRecognizer:(id)gesture {
+    NSString *cls = gesture ? NSStringFromClass([gesture class]) : @"nil";
+    KSLog([NSString stringWithFormat:@"GESTURE_ENDED class=%@", cls]);
+    %orig;
+}
+
+- (void)_commitTransitionToAppeared:(BOOL)appeared animated:(BOOL)animated {
+    KSLog([NSString stringWithFormat:@"COMMIT appeared=%d animated=%d", appeared, animated]);
+    %orig;
 }
 
 %end
