@@ -19,7 +19,11 @@ static BOOL gKickstandExpanded = NO;
     BOOL edgePan = [name isEqualToString:@"SBCoverSheetScreenEdgePanGestureRecognizer"];
 
     if (edgePan && gestureRecognizer.state == UIGestureRecognizerStateEnded) {
-        CGPoint velocity = [gestureRecognizer velocityInView:gestureRecognizer.view];
+        CGPoint velocity = CGPointZero;
+
+        if ([gestureRecognizer respondsToSelector:@selector(velocityInView:)]) {
+            velocity = [(UIPanGestureRecognizer *)gestureRecognizer velocityInView:gestureRecognizer.view];
+        }
 
         // 仅处理向下滑动
         if (velocity.y > 0) {
