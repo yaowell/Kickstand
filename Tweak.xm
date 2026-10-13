@@ -648,7 +648,7 @@ static void KSSchedulePaste(NSString *why) {
     if (!KSCanExecutePaste()) return;
 
     NSTimeInterval now = CFAbsoluteTimeGetCurrent();
-    if (now - KSLastTrigger < 0.5) return;   // 去抖:一次点击只粘一次
+    if (now - gKSLastTrigger < 0.5) return;   // 去抖:一次点击只粘一次
     gKSLastTrigger = now;
     gKSPasteDone = NO;
 
