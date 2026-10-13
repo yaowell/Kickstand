@@ -1,7 +1,62 @@
-{
-    Filter = {
-        Bundles = (
-            "com.apple.springboard"
-        );
-    };
-}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Kickstand 运行期配置(可选)
+  放到: /var/mobile/Library/Preferences/com.kickstand.plist
+  塞进去以后 killall -9 目标App 或 respring 生效。不装这个文件就用 Tweak.xm 里的编译期默认值。
+-->
+<dict>
+	<key>Enabled</key>			<true/>
+	<key>Verbose</key>			<true/>
+	<key>DryRun</key>			<false/>	<!-- 先 true 观察日志,确认无误再 false -->
+
+	<key>PasteDelay</key>		<real>0.15</real>	<!-- 0.1 ~ 0.2 -->
+	<key>PollInterval</key>		<real>0.08</real>
+	<key>PanelSignal</key>		<true/>
+	<key>RequireTextInput</key>	<true/>
+	<key>AutoDiscover</key>		<true/>
+
+	<!-- 原插件 dylib 文件名(不含 .dylib,大小写不敏感)。填了才能自动发现它的类 -->
+	<key>PluginImageHints</key>
+	<array>
+		<!-- <string>你的插件名</string> -->
+	</array>
+
+	<!-- 原插件特征类名(最硬的判据,填了就直接按这个判断"是否已注入") -->
+	<key>PluginClassHints</key>
+	<array>
+		<!-- <string>XXXClipboardManager</string> -->
+	</array>
+
+	<!-- 判断"点击了历史记录"的方法,格式 "类名:选择器"(选择器要带完整冒号) -->
+	<key>ClickSelectors</key>
+	<array>
+		<!-- <string>XXXHistoryCell:pasteItem:</string> -->
+	</array>
+
+	<!-- 自动发现时匹配的选择器关键字(小写包含匹配) -->
+	<key>SelectorPatterns</key>
+	<array>
+		<string>didselect</string>
+		<string>selectrow</string>
+		<string>didpick</string>
+		<string>handletap</string>
+		<string>tapped</string>
+		<string>onclick</string>
+		<string>pasteitem</string>
+		<string>copyitem</string>
+	</array>
+
+	<!-- 只在列表里的 App 生效。留空 = 所有 App -->
+	<key>InjectBundleIDs</key>
+	<array>
+	</array>
+
+	<key>SkipBundleIDs</key>
+	<array>
+		<string>com.apple.springboard</string>
+		<string>com.apple.backboardd</string>
+	</array>
+</dict>
+</plist>
